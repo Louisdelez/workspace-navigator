@@ -107,6 +107,20 @@ const api = {
       ipcRenderer.invoke('tag:getItems', workspaceId, tagId),
     delete: (tagId: string): Promise<void> =>
       ipcRenderer.invoke('tag:delete', tagId)
+  },
+
+  // Crash operations (T056)
+  crash: {
+    getStatistics: (): Promise<{ total: number; byType: Record<string, number>; lastCrash?: number }> =>
+      ipcRenderer.invoke('crash:getStatistics'),
+    getRecentCrashes: (limit?: number): Promise<any[]> =>
+      ipcRenderer.invoke('crash:getRecentCrashes', limit),
+    onUnresponsive: (callback: () => void) => {
+      ipcRenderer.on('app:unresponsive', callback);
+    },
+    onResponsive: (callback: () => void) => {
+      ipcRenderer.on('app:responsive', callback);
+    }
   }
 };
 

@@ -16,6 +16,8 @@ import { logger } from '../core/logging/logger';
 import { initializeErrorHandler, handleDatabaseError } from '../core/logging/error-handler';
 import { CSPManager } from '../core/security/csp';
 import { SecurityAuditor } from '../core/security/security-audit';
+import { CrashManager } from '../core/crash/crash-manager';
+import { CrashReporter } from '../core/crash/crash-reporter';
 
 // Initialize error handler first
 initializeErrorHandler();
@@ -27,6 +29,7 @@ let windowManager: WindowManager;
 let sessionManager: SessionManager;
 let browserViewManager: BrowserViewManager;
 let tabManager: TabManager;
+let crashManager: CrashManager;
 
 // Database path
 const DB_PATH = join(app.getPath('userData'), 'workspace.db');
@@ -300,6 +303,17 @@ function setupIpcHandlers() {
 
     return browserViewManager.getCurrentAIProvider();
   });
+
+  // Crash operations (T056)
+  ipcMain.handle('crash:getStatistics', () => {
+    if (!crashManager) throw new Error('CrashManager not initialized');
+    return crashManager.getStatistics();
+  });
+
+  ipcMain.handle('crash:getRecentCrashes', (_, limit?: number) => {
+    if (!crashManager) throw new Error('CrashManager not initialized');
+    return crashManager.getRecentCrashes(limit);
+  });
 }
 
 /**
@@ -392,6 +406,16 @@ app.whenReady().then(async () => {
     logger.info('Security audit passed successfully');
   }
 
+  // T056: Initialize crash detection and recovery
+  logger.info('Initializing crash detection (T056)');
+  CrashReporter.initialize();
+  crashManager = new CrashManager({
+    autoRecover: true,
+    maxRecoveryAttempts: 3,
+    recoveryDelay: 2000,
+    notifyUser: true
+  });
+
   initializeDatabase();
   setupIpcHandlers();
 
@@ -403,6 +427,9 @@ app.whenReady().then(async () => {
   const mainWindow = windowManager.getMainWindow();
   if (mainWindow) {
     initializeTabManager(mainWindow);
+
+    // T056: Set main window for crash manager
+    crashManager.setMainWindow(mainWindow);
 
     // Restore tabs from session
     await restoreTabs();
@@ -505,5 +532,11 @@ app.on('will-quit', async () => {
   }
 });
 
-// Note: Error handlers are now managed by ErrorHandler
-// See src/core/logging/error-handler.ts
+// T056: Global error handlers for crash detection
+process.on('uncaughtException', (error: Error) => {
+  CrashManager.handleUncaughtException(error);
+});
+
+process.on('unhandledRejection', (reason: any) => {
+  CrashManager.handleUnhandledRejection(reason);
+});

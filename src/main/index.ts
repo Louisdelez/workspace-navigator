@@ -14,9 +14,31 @@ import { BrowserViewManager } from './browser-view-manager';
 import { TabManager } from './tab-manager';
 import { logger } from '../core/logging/logger';
 import { initializeErrorHandler, handleDatabaseError } from '../core/logging/error-handler';
+import { CSPManager } from '../core/security/csp';
+import { SecurityAuditor } from '../core/security/security-audit';
 
 // Initialize error handler first
 initializeErrorHandler();
+
+// T055: Initialize security before anything else
+logger.info('Initializing security (T055)');
+CSPManager.initialize();
+
+// T055: Run security audit
+const auditor = new SecurityAuditor();
+const auditResult = auditor.audit();
+
+if (!auditResult.passed) {
+  const error = new Error('Security audit failed - application may be vulnerable');
+  logger.error('Security audit failed', error, {
+    criticalIssues: auditResult.criticalIssues,
+    warnings: auditResult.warnings
+  });
+  // Log full report
+  console.error(SecurityAuditor.formatReport(auditResult));
+} else {
+  logger.info('Security audit passed successfully');
+}
 
 let db: WorkspaceDatabase;
 let engine: WorkspaceEngine;

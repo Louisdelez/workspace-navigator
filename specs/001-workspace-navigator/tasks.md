@@ -1,1469 +1,2665 @@
 # Implementation Tasks: Workspace Navigator
 
-**Branch**: `001-workspace-navigator` | **Date**: 2025-11-22
-**Based on**: [spec.md](./spec.md), [plan.md](./plan.md), constitution.md, clarifications
+**Branch**: `001-workspace-navigator` | **Date**: 2025-11-24
+**Architecture**: Electron BrowserView (Pivot from CEF)
+**Based on**: [spec.md](./spec.md), [plan.md](./plan.md), [ARCHITECTURE_PIVOT.md](../../ARCHITECTURE_PIVOT.md)
 
-## Task Organization
+## Overview
 
-This document contains all actionable tasks to implement Workspace Navigator from MVP to V1. Tasks are organized by module, with clear MVP/V1 designation and dependency tracking.
+This task list implements Workspace Navigator using **Electron's built-in BrowserView API** instead of CEF. The architecture pivot eliminates native C++ compilation while maintaining all product features.
 
-**Legend**:
-- 🎯 **MVP**: Minimum viable product (4-week sprint)
-- 🚀 **V1**: Full V1 release (additional 8 weeks after MVP)
-- 🔮 **V2**: Future enhancements (post-V1)
-- ⚠️ **Dependency**: Must complete prerequisite tasks first
+**Key Changes from CEF Approach**:
+- ✅ No native code compilation
+- ✅ Electron BrowserView for web rendering
+- ✅ Simpler build process
+- ✅ Faster development cycle
+- ✅ Same user experience
+
+**Task Organization**:
+- 🎯 **MVP** (Minimum Viable Product) - 4-week sprint
+- 🚀 **V1** (Full Version 1) - Additional 8 weeks
+- ⚡ **Parallel** - Can be executed concurrently with other tasks
 
 ---
 
-## 0. Project Foundation (Infrastructure)
+## Phase 1: Project Setup & CEF Removal
 
-### 0.1. Repository Setup 🎯
+**Goal**: Remove CEF dependencies and configure pure Electron architecture
+**Duration**: 3-5 days
+
+### T001: Remove CEF Native Code 🎯
+**Priority**: P0 (Blocking)
 **Dependencies**: None
+**Estimated Time**: 2 hours
 
-- 0.1.1. Initialize Git repository with .gitignore
-- 0.1.2. Create project directory structure (src/, tests/, build/, docs/)
-- 0.1.3. Set up package.json with Electron + TypeScript dependencies
-- 0.1.4. Configure TypeScript compiler (tsconfig.json for main + renderer)
-- 0.1.5. Set up ESLint + Prettier for code formatting
-- 0.1.6. Create README.md with project overview
-- 0.1.7. Set up LICENSE file (choose appropriate license)
+**Tasks**:
+1. Delete `native/` directory entirely
+   - Remove `native/src/` (all C++ files)
+   - Remove `native/include/` (all headers)
+   - Remove `native/build-cef-*.sh` scripts
+   - Remove CMakeLists.txt
+2. Archive CEF documentation
+   - Move `CEF_*.md` files to `archive/cef-experiment/`
+   - Keep ARCHITECTURE_PIVOT.md in root for reference
+3. Verify no references to CEF in codebase
+   - Search for "cef" (case insensitive)
+   - Search for "webview_pool"
+   - Search for "browser_client"
 
-### 0.2. Build System Configuration 🎯
-**Dependencies**: 0.1 complete
-
-- 0.2.1. Configure Webpack for renderer process bundling
-- 0.2.2. Configure electron-builder for packaging
-  - 0.2.2.1. Windows build configuration (NSIS installer)
-  - 0.2.2.2. macOS build configuration (DMG + zip)
-  - 0.2.2.3. Linux build configuration (AppImage + deb)
-- 0.2.3. Create build scripts (npm run build, build:dev, build:prod)
-- 0.2.4. Configure source maps for debugging
-- 0.2.5. Set up hot reload for development
-
-### 0.3. CEF Native Build Setup 🎯
-**Dependencies**: 0.1 complete
-
-- 0.3.1. Download CEF binary distribution (120+) for each platform
-- 0.3.2. Create CMakeLists.txt for C++ CEF addon
-  - 0.3.2.1. Configure CEF library linking
-  - 0.3.2.2. Configure N-API bindings
-  - 0.3.2.3. Set up cross-platform compilation flags
-- 0.3.3. Create build scripts for CEF native addon
-  - 0.3.3.1. build-cef-windows.bat
-  - 0.3.3.2. build-cef-mac.sh
-  - 0.3.3.3. build-cef-linux.sh
-- 0.3.4. Test CEF compilation on all target platforms
-
-### 0.4. Testing Infrastructure 🎯
-**Dependencies**: 0.1, 0.2 complete
-
-- 0.4.1. Configure Jest for unit testing
-  - 0.4.1.1. Set up TypeScript support in Jest
-  - 0.4.1.2. Configure coverage thresholds (70%+)
-  - 0.4.1.3. Create test utilities and mocks
-- 0.4.2. Configure Playwright for E2E testing
-  - 0.4.2.1. Set up Electron Playwright integration
-  - 0.4.2.2. Create E2E test helpers
-  - 0.4.2.3. Configure screenshot/video capture
-- 0.4.3. Set up test database fixtures
-- 0.4.4. Create npm test scripts (test, test:unit, test:e2e, test:coverage)
-
-### 0.5. CI/CD Pipeline 🎯
-**Dependencies**: 0.1, 0.2, 0.4 complete
-
-- 0.5.1. Create GitHub Actions workflow (.github/workflows/build.yml)
-  - 0.5.1.1. Configure matrix builds (Windows, macOS, Linux)
-  - 0.5.1.2. Add linting step
-  - 0.5.1.3. Add unit test step
-  - 0.5.1.4. Add E2E test step
-  - 0.5.1.5. Add build step
-  - 0.5.1.6. Add package step
-  - 0.5.1.7. Configure artifact upload
-- 0.5.2. Set up code coverage reporting (Codecov or similar)
-- 0.5.3. Configure automated dependency updates (Dependabot)
+**Acceptance Criteria**:
+- `native/` directory does not exist
+- No CEF-related imports in TypeScript files
+- Build completes without CEF references
 
 ---
 
-## 1. CEF Engine Module
+### T002: Update Package Dependencies 🎯
+**Priority**: P0 (Blocking)
+**Dependencies**: T001
+**Estimated Time**: 1 hour
 
-### 1.1. CEF Core Integration 🎯
-**Dependencies**: 0.3 complete
+**Tasks**:
+1. Remove CEF dependencies from package.json
+   - Remove any CEF-related npm packages
+   - Remove node-gyp dependencies
+   - Remove cmake-js dependencies
+2. Update Electron to version 30+
+   - Ensure BrowserView API available
+   - Update @types/electron
+3. Add required dependencies
+   - better-sqlite3 (SQLite with native bindings)
+   - electron-builder (packaging)
+   - vite (renderer bundling)
+4. Run `npm install`
+5. Verify electron can launch: `npx electron .`
 
-- 1.1.1. Implement CEFManager class (C++)
-  - 1.1.1.1. Initialize CEF runtime with sandbox enabled
-  - 1.1.1.2. Configure multi-threaded message loop
-  - 1.1.1.3. Set cache directory path
-  - 1.1.1.4. Implement CEF shutdown logic
-  - 1.1.1.5. Handle CEF subprocess lifecycle
-- 1.1.2. Implement CEFApp class extending CefApp
-  - 1.1.2.1. Override OnBeforeCommandLineProcessing
-  - 1.1.2.2. Enforce sandbox (remove --no-sandbox if present)
-  - 1.1.2.3. Configure CEF command-line switches
-  - 1.1.2.4. Disable unnecessary CEF features
-- 1.1.3. Create N-API bridge (NodeCEFBridge.cpp)
-  - 1.1.3.1. Expose CEF initialization to Node.js
-  - 1.1.3.2. Expose browser creation functions
-  - 1.1.3.3. Expose navigation functions
-  - 1.1.3.4. Implement event callbacks (onLoad, onError, etc.)
-- 1.1.4. Write unit tests for CEF initialization
-
-### 1.2. Browser Client Implementation 🎯
-**Dependencies**: 1.1 complete
-
-- 1.2.1. Implement BrowserClient class extending CefClient
-  - 1.2.1.1. Override GetLoadHandler
-  - 1.2.1.2. Override GetRequestHandler
-  - 1.2.1.3. Override GetLifeSpanHandler
-  - 1.2.1.4. Override GetDisplayHandler (for title/favicon)
-- 1.2.2. Implement LoadHandler
-  - 1.2.2.1. OnLoadStart callback
-  - 1.2.2.2. OnLoadEnd callback (trigger item creation)
-  - 1.2.2.3. OnLoadError callback
-  - 1.2.2.4. OnLoadingStateChange callback
-- 1.2.3. Implement RequestHandler
-  - 1.2.3.1. OnBeforeBrowse (URL validation)
-  - 1.2.3.2. OnBeforeResourceLoad
-  - 1.2.3.3. Apply Content Security Policy headers
-- 1.2.4. Implement DisplayHandler
-  - 1.2.4.1. OnTitleChange callback
-  - 1.2.4.2. OnFaviconURLChange callback
-  - 1.2.4.3. OnLoadingProgressChange callback
-
-### 1.3. WebView Pool 🚀
-**Dependencies**: 1.2 complete
-
-- 1.3.1. Implement WebViewPool class
-  - 1.3.1.1. Maintain available_ vector of CefBrowser instances
-  - 1.3.1.2. Maintain in_use_ map of active browsers
-  - 1.3.1.3. Define MAX_POOL_SIZE = 20
-- 1.3.2. Implement Acquire() method
-  - 1.3.2.1. Check available pool
-  - 1.3.2.2. Create new browser if pool empty and under limit
-  - 1.3.2.3. Return browser from available pool
-  - 1.3.2.4. Track browser as in_use
-- 1.3.3. Implement Release() method
-  - 1.3.3.1. Remove browser from in_use
-  - 1.3.3.2. Reset browser state (clear cookies/cache for this instance)
-  - 1.3.3.3. Return browser to available pool
-- 1.3.4. Implement CreateNewBrowser() helper
-  - 1.3.4.1. Create CefBrowserHost settings
-  - 1.3.4.2. Create browser in offscreen mode
-  - 1.3.4.3. Attach BrowserClient
-  - 1.3.4.4. Return CefBrowser reference
-- 1.3.5. Write unit tests for pool management
-- 1.3.6. Write integration tests for pool reuse
-
-### 1.4. Process Management 🚀
-**Dependencies**: 1.2 complete
-
-- 1.4.1. Implement process-per-site-instance model
-  - 1.4.1.1. Configure CEF to share processes for same origin
-  - 1.4.1.2. Monitor process count
-  - 1.4.1.3. Log process creation/destruction
-- 1.4.2. Implement tab suspension for inactive tabs
-  - 1.4.2.1. Detect tab inactivity (30s threshold)
-  - 1.4.2.2. Suspend tab rendering
-  - 1.4.2.3. Resume rendering on tab focus
-  - 1.4.2.4. Preserve tab state during suspension
-- 1.4.3. Handle CEF subprocess crashes
-  - 1.4.3.1. Detect subprocess termination
-  - 1.4.3.2. Notify user of crash
-  - 1.4.3.3. Recreate subprocess if needed
-  - 1.4.3.4. Log crash details
-
-### 1.5. Security Configuration 🎯
-**Dependencies**: 1.1 complete
-
-- 1.5.1. Enforce CEF sandbox
-  - 1.5.1.1. Verify sandbox is enabled on startup
-  - 1.5.1.2. Log warning if sandbox disabled
-  - 1.5.1.3. Refuse to start if sandbox cannot be enabled
-- 1.5.2. Configure Content Security Policy
-  - 1.5.2.1. Define CSP policy string
-  - 1.5.2.2. Apply CSP to all web requests
-  - 1.5.2.3. Log CSP violations
-- 1.5.3. Disable unnecessary protocols
-  - 1.5.3.1. Block file:// access
-  - 1.5.3.2. Allow only https:// and http:// (upgraded)
-  - 1.5.3.3. Allow custom app:// protocol for MarkText
-- 1.5.4. Configure HTTPS upgrade
-  - 1.5.4.1. Automatically upgrade http to https
-  - 1.5.4.2. Log upgrade events
-- 1.5.5. Write security audit tests
-
-### 1.6. Navigation & History 🎯
-**Dependencies**: 1.2 complete
-
-- 1.6.1. Implement navigation functions
-  - 1.6.1.1. LoadURL(url) function
-  - 1.6.1.2. GoBack() function
-  - 1.6.1.3. GoForward() function
-  - 1.6.1.4. Reload() function
-  - 1.6.1.5. StopLoad() function
-- 1.6.2. Track navigation history per browser
-  - 1.6.2.1. Maintain history stack
-  - 1.6.2.2. Expose CanGoBack() query
-  - 1.6.2.3. Expose CanGoForward() query
-- 1.6.3. Handle URL changes
-  - 1.6.3.1. Emit onNavigate event to Node.js
-  - 1.6.3.2. Include URL, title, favicon in event
-  - 1.6.3.3. Trigger duplication check (via Workspace Engine)
-- 1.6.4. Write unit tests for navigation
+**Acceptance Criteria**:
+- package.json has no CEF references
+- Electron 30+ installed
+- `npm install` completes successfully
+- Basic Electron window opens
 
 ---
 
-## 2. Storage Layer Module
+### T003: Configure Build System 🎯
+**Priority**: P0
+**Dependencies**: T002
+**Estimated Time**: 3 hours
 
-### 2.1. Database Setup 🎯
-**Dependencies**: 0.1 complete
+**Tasks**:
+1. Update `package.json` scripts
+   ```json
+   {
+     "scripts": {
+       "dev": "vite",
+       "build:renderer": "vite build",
+       "build:main": "tsc -p tsconfig.main.json",
+       "build": "npm run build:main && npm run build:renderer",
+       "electron:dev": "electron .",
+       "electron:build": "electron-builder"
+     }
+   }
+   ```
+2. Create/update tsconfig files
+   - `tsconfig.main.json` for main process
+   - `tsconfig.renderer.json` for renderer process
+3. Configure Vite for renderer
+   - Create `vite.config.ts`
+   - Set up React support
+   - Configure build output to `dist/renderer/`
+4. Configure electron-builder
+   - Create `electron-builder.json5`
+   - Set targets: Windows, macOS, Linux
+   - Configure app metadata
 
-- 2.1.1. Install SQLite + SQLCipher dependencies
-  - 2.1.1.1. Add @journeyapps/sqlcipher to package.json
-  - 2.1.1.2. Build SQLCipher for Electron compatibility
-  - 2.1.1.3. Test SQLCipher encryption
-- 2.1.2. Create Database class (Database.ts)
-  - 2.1.2.1. Constructor accepting dbPath and encryption key
-  - 2.1.2.2. Initialize SQLite connection
-  - 2.1.2.3. Apply encryption key via PRAGMA
-  - 2.1.2.4. Set WAL mode for concurrency
-  - 2.1.2.5. Enable foreign keys
-- 2.1.3. Define database schema (schema.sql)
-  - 2.1.3.1. Create workspaces table
-  - 2.1.3.2. Create folders table with FK to workspaces
-  - 2.1.3.3. Create items table with FK to workspaces + folders
-  - 2.1.3.4. Create session_state table
-  - 2.1.3.5. Create indexes for performance
-- 2.1.4. Implement schema migration system
-  - 2.1.4.1. Track schema version (PRAGMA user_version)
-  - 2.1.4.2. Create MigrationRunner class
-  - 2.1.4.3. Write migration scripts (v1 → v2, etc.)
-  - 2.1.4.4. Apply migrations on startup
-- 2.1.5. Write database initialization tests
-
-### 2.2. Workspace Persistence 🎯
-**Dependencies**: 2.1 complete
-
-- 2.2.1. Implement workspace CRUD operations
-  - 2.2.1.1. createWorkspace(name) → INSERT workspace
-  - 2.2.1.2. getWorkspace(id) → SELECT workspace
-  - 2.2.1.3. listWorkspaces() → SELECT all workspaces
-  - 2.2.1.4. updateWorkspace(id, data) → UPDATE workspace
-  - 2.2.1.5. deleteWorkspace(id) → DELETE CASCADE
-- 2.2.2. Implement folder CRUD operations
-  - 2.2.2.1. createFolder(workspaceId, name, parentId?)
-  - 2.2.2.2. getFolder(id)
-  - 2.2.2.3. listFolders(workspaceId)
-  - 2.2.2.4. getFolderHierarchy(workspaceId) → nested tree
-  - 2.2.2.5. updateFolder(id, data)
-  - 2.2.2.6. deleteFolder(id, deleteItems boolean)
-- 2.2.3. Implement item CRUD operations
-  - 2.2.3.1. createItem(workspaceId, folderId, type, data)
-  - 2.2.3.2. getItem(id)
-  - 2.2.3.3. listItems(workspaceId, folderId?)
-  - 2.2.3.4. updateItem(id, data)
-  - 2.2.3.5. deleteItem(id)
-  - 2.2.3.6. moveItem(itemId, targetFolderId)
-- 2.2.4. Write unit tests for all CRUD operations
-- 2.2.5. Write integration tests for cascading deletes
-
-### 2.3. Session State Management 🚀
-**Dependencies**: 2.1 complete, clarification C applied
-
-- 2.3.1. Create SessionStore class (SessionStore.ts)
-  - 2.3.1.1. saveState(state) → atomic JSON write
-  - 2.3.1.2. loadState() → read JSON file
-  - 2.3.1.3. Implement temp + rename pattern for atomicity
-  - 2.3.1.4. Create backup on each save (.backup)
-- 2.3.2. Define session state schema (TypeScript interface)
-  - 2.3.2.1. activeWorkspaceId
-  - 2.3.2.2. tabs: array of {itemId, url, type, scrollPosition, zoomLevel}
-  - 2.3.2.3. activeTabIndex
-  - 2.3.2.4. windowGeometry: {x, y, width, height}
-  - 2.3.2.5. lastSaved timestamp
-- 2.3.3. Implement continuous session saving
-  - 2.3.3.1. Save on tab open/close
-  - 2.3.3.2. Save on workspace switch
-  - 2.3.3.3. Save on window resize/move
-  - 2.3.3.4. Debounce saves (max 1 save per second)
-- 2.3.4. Write unit tests for session persistence
-- 2.3.5. Write integration tests for state restoration
-
-### 2.4. Integrity Validation 🚀
-**Dependencies**: 2.1 complete, clarification C applied
-
-- 2.4.1. Create IntegrityValidator class
-  - 2.4.1.1. validate(workspaceId) → ValidationResult
-  - 2.4.1.2. Check workspace exists
-  - 2.4.1.3. Check foreign key constraints
-  - 2.4.1.4. Check schema version
-  - 2.4.1.5. Detect orphaned items (folder FK invalid)
-- 2.4.2. Implement auto-repair logic
-  - 2.4.2.1. Move orphaned items to workspace root
-  - 2.4.2.2. Fix invalid folder parent references
-  - 2.4.2.3. Log all repairs
-  - 2.4.2.4. Notify user of repairs performed
-- 2.4.3. Implement backup restoration
-  - 2.4.3.1. Detect corrupted database on startup
-  - 2.4.3.2. Attempt restoration from .backup file
-  - 2.4.3.3. Log restoration result
-  - 2.4.3.4. Notify user of data recovery
-- 2.4.4. Write unit tests for validation logic
-- 2.4.5. Write integration tests for corruption recovery
-
-### 2.5. Encryption Key Management 🚀
-**Dependencies**: 2.1 complete
-
-- 2.5.1. Create KeyManager class
-  - 2.5.1.1. Derive encryption key from machine ID
-  - 2.5.1.2. Use PBKDF2 with appropriate iterations
-  - 2.5.1.3. Store salt in userData directory
-  - 2.5.1.4. Expose getKey() method
-- 2.5.2. Implement master password support (optional)
-  - 2.5.2.1. Prompt user for password on first launch
-  - 2.5.2.2. Derive key from password + machine ID
-  - 2.5.2.3. Store password hash in OS keychain
-  - 2.5.2.4. Verify password on subsequent launches
-- 2.5.3. Handle key rotation (V2 feature - document approach)
-- 2.5.4. Write security tests for key derivation
-
-### 2.6. Search & Indexing 🚀
-**Dependencies**: 2.2 complete
-
-- 2.6.1. Implement searchItems(workspaceId, query)
-  - 2.6.1.1. Search by title (LIKE %query%)
-  - 2.6.1.2. Search by tags (JSON array contains)
-  - 2.6.1.3. Search by URL (web items only)
-  - 2.6.1.4. Return ranked results
-- 2.6.2. Create full-text search index (FTS5)
-  - 2.6.2.1. Create FTS virtual table for items
-  - 2.6.2.2. Index title, tags, URL
-  - 2.6.2.3. For notes: index Markdown content
-  - 2.6.2.4. Update FTS on item creation/update
-- 2.6.3. Optimize search performance
-  - 2.6.3.1. Add covering indexes for common queries
-  - 2.6.3.2. Limit results to 100
-  - 2.6.3.3. Implement search result caching
-- 2.6.4. Write unit tests for search
-- 2.6.5. Write performance tests (search 500+ items)
+**Acceptance Criteria**:
+- `npm run build` succeeds
+- `npm run electron:dev` launches app
+- Hot reload works for renderer
+- Main process restarts on changes
 
 ---
 
-## 3. Workspace Engine Module
+### T004: Update Project Structure 🎯
+**Priority**: P0
+**Dependencies**: T003
+**Estimated Time**: 2 hours
 
-### 3.1. WorkspaceManager Implementation 🎯
-**Dependencies**: 2.2 complete
+**Tasks**:
+1. Ensure directory structure matches plan.md:
+   ```
+   src/
+   ├── main/                    # Electron main process
+   ├── core/                    # Business logic (shared)
+   │   ├── workspace/
+   │   ├── storage/
+   │   └── types/
+   ├── renderer/                # React UI
+   │   ├── components/
+   │   ├── hooks/
+   │   └── store/
+   └── preload/                 # Preload scripts
+   ```
+2. Create placeholder files in each directory
+3. Set up module exports/imports
+4. Update import paths in existing files
 
-- 3.1.1. Create WorkspaceManager class (WorkspaceManager.ts)
-  - 3.1.1.1. Maintain activeWorkspace state
-  - 3.1.1.2. Maintain in-memory workspace tree
-  - 3.1.1.3. Expose createWorkspace(name) method
-  - 3.1.1.4. Expose openWorkspace(id) method
-  - 3.1.1.5. Expose deleteWorkspace(id) method
-  - 3.1.1.6. Expose listWorkspaces() method
-- 3.1.2. Implement workspace lifecycle
-  - 3.1.2.1. Create: INSERT workspace + root folder
-  - 3.1.2.2. Open: Load tree from DB, hydrate memory
-  - 3.1.2.3. Delete: Confirm dialog, CASCADE delete
-  - 3.1.2.4. Switch: Save current state, load new workspace
-- 3.1.3. Emit workspace events
-  - 3.1.3.1. onWorkspaceCreated
-  - 3.1.3.2. onWorkspaceOpened
-  - 3.1.3.3. onWorkspaceDeleted
-  - 3.1.3.4. onWorkspaceSwitched
-- 3.1.4. Write unit tests for WorkspaceManager
-- 3.1.5. Write integration tests for multi-workspace switching
-
-### 3.2. ItemManager Implementation 🎯
-**Dependencies**: 2.2 complete, clarifications B applied
-
-- 3.2.1. Create ItemManager class (ItemManager.ts)
-  - 3.2.1.1. Expose createWebItem(workspaceId, url, folderId?) method
-  - 3.2.1.2. Expose createNoteItem(workspaceId, title, folderId?) method
-  - 3.2.1.3. Expose moveItem(itemId, targetFolderId) method
-  - 3.2.1.4. Expose renameItem(itemId, newTitle) method
-  - 3.2.1.5. Expose deleteItem(itemId) method
-  - 3.2.1.6. Expose addTags(itemId, tags[]) method
-- 3.2.2. Implement auto date folder logic (clarification B)
-  - 3.2.2.1. Check if folderId is null (workspace root)
-  - 3.2.2.2. Get today's date in DD.MM.YYYY format
-  - 3.2.2.3. Check if date folder exists
-  - 3.2.2.4. Create date folder if not exists
-  - 3.2.2.5. Assign item to date folder
-- 3.2.3. Implement web item creation
-  - 3.2.3.1. Extract URL, title, favicon from CEF
-  - 3.2.3.2. Run duplication check (see 3.3)
-  - 3.2.3.3. If duplicate: return existing item
-  - 3.2.3.4. If not: INSERT new item, emit event
-- 3.2.4. Implement note item creation
-  - 3.2.4.1. Generate unique noteId (UUID)
-  - 3.2.4.2. Create empty file: notes/<noteId>.md
-  - 3.2.4.3. INSERT item with type='note'
-  - 3.2.4.4. Emit itemCreated event
-- 3.2.5. Write unit tests for ItemManager
-- 3.2.6. Write integration tests for date folder logic
-
-### 3.3. DuplicationDetector Implementation 🚀
-**Dependencies**: 2.2 complete, clarification B applied
-
-- 3.3.1. Create DuplicationDetector class (DuplicationDetector.ts)
-  - 3.3.1.1. checkDuplicate(workspaceId, url) → Item | null
-  - 3.3.1.2. Query items with same URL in workspace
-  - 3.3.1.3. Filter by created_at = today
-  - 3.3.1.4. Filter by folder_id = current context folder
-  - 3.3.1.5. Return match or null
-- 3.3.2. Implement current context detection
-  - 3.3.2.1. Get active folder from workspace tree selection
-  - 3.3.2.2. Default to null (root) if no folder selected
-  - 3.3.2.3. Use folder from last opened item if available
-- 3.3.3. Handle duplicate found scenario
-  - 3.3.3.1. Focus existing item's tab
-  - 3.3.3.2. Close new navigation tab
-  - 3.3.3.3. Update item.lastOpenedAt
-  - 3.3.3.4. Log duplication event
-- 3.3.4. Write unit tests for duplication logic
-- 3.3.5. Write integration tests for same-day + same-folder detection
-
-### 3.4. FolderManager Implementation 🎯
-**Dependencies**: 2.2 complete
-
-- 3.4.1. Create FolderManager class (FolderManager.ts)
-  - 3.4.1.1. Expose createFolder(workspaceId, name, parentId?) method
-  - 3.4.1.2. Expose renameFolder(folderId, newName) method
-  - 3.4.1.3. Expose deleteFolder(folderId, deleteItems) method
-  - 3.4.1.4. Expose moveFolder(folderId, newParentId) method
-  - 3.4.1.5. Expose getFolderHierarchy(workspaceId) method
-- 3.4.2. Implement folder validation
-  - 3.4.2.1. Prevent circular references (folder as own parent)
-  - 3.4.2.2. Check folder name uniqueness in parent
-  - 3.4.2.3. Validate parent exists in same workspace
-- 3.4.3. Implement folder deletion
-  - 3.4.3.1. If deleteItems=true: CASCADE delete items
-  - 3.4.3.2. If deleteItems=false: move items to parent or root
-  - 3.4.3.3. Show confirmation dialog with item count
-  - 3.4.3.4. Emit folderDeleted event
-- 3.4.4. Build in-memory tree structure
-  - 3.4.4.1. Load all folders for workspace
-  - 3.4.4.2. Build parent-child relationships
-  - 3.4.4.3. Sort folders alphabetically
-  - 3.4.4.4. Cache tree in memory
-- 3.4.5. Write unit tests for FolderManager
-- 3.4.6. Write integration tests for circular reference prevention
-
-### 3.5. Workspace Event System 🎯
-**Dependencies**: 3.1, 3.2, 3.4 complete
-
-- 3.5.1. Define event types (TypeScript enums)
-  - 3.5.1.1. WorkspaceCreated, WorkspaceOpened, WorkspaceDeleted
-  - 3.5.1.2. ItemCreated, ItemMoved, ItemRenamed, ItemDeleted
-  - 3.5.1.3. FolderCreated, FolderRenamed, FolderDeleted
-  - 3.5.1.4. TagsAdded, TagsRemoved
-- 3.5.2. Implement EventEmitter for workspace events
-  - 3.5.2.1. Extend Node.js EventEmitter
-  - 3.5.2.2. Emit events from WorkspaceManager
-  - 3.5.2.3. Emit events from ItemManager
-  - 3.5.2.4. Emit events from FolderManager
-- 3.5.3. Create IPC handlers to broadcast events to renderer
-  - 3.5.3.1. Listen to workspace events in main process
-  - 3.5.3.2. Send IPC messages to renderer (webContents.send)
-  - 3.5.3.3. Include event data (ids, names, etc.)
-- 3.5.4. Write unit tests for event emission
-- 3.5.5. Write integration tests for event propagation
+**Acceptance Criteria**:
+- Directory structure matches plan.md
+- All modules can import from `src/core/types`
+- No broken imports
 
 ---
 
-## 4. Tab Manager Module
+### T005: Set Up Testing Infrastructure 🎯
+**Priority**: P1
+**Dependencies**: T003
+**Estimated Time**: 4 hours
+**Parallel**: Can run alongside T006-T008
 
-### 4.1. TabManager Core 🎯
-**Dependencies**: 1.6, 3.2 complete
+**Tasks**:
+1. Install testing dependencies
+   - vitest (unit tests)
+   - @testing-library/react (React component tests)
+   - playwright (E2E tests)
+   - @playwright/test + electron
+2. Configure Vitest
+   - Create `vitest.config.ts`
+   - Set up coverage thresholds (70%+)
+   - Configure test environment
+3. Configure Playwright
+   - Create `playwright.config.ts`
+   - Set up Electron test harness
+   - Configure screenshot/video capture
+4. Create test utilities
+   - Mock IPC handlers
+   - Database fixtures
+   - Helper functions
+5. Write sample tests to verify setup
 
-- 4.1.1. Create TabManager class (TabManager.ts)
-  - 4.1.1.1. Maintain tabs[] array of Tab objects
-  - 4.1.1.2. Maintain activeTabIndex
-  - 4.1.1.3. Expose openTab(itemId) method
-  - 4.1.1.4. Expose closeTab(tabId) method
-  - 4.1.1.5. Expose switchTab(tabIndex) method
-  - 4.1.1.6. Expose reorderTab(fromIndex, toIndex) method
-- 4.1.2. Define Tab interface
-  - 4.1.2.1. id (unique UUID)
-  - 4.1.2.2. itemId (FK to workspace item)
-  - 4.1.2.3. type ('web' | 'note')
-  - 4.1.2.4. url (for web tabs)
-  - 4.1.2.5. title
-  - 4.1.2.6. favicon (for web tabs)
-  - 4.1.2.7. webviewId (CEF browser ID)
-  - 4.1.2.8. isLoading boolean
-  - 4.1.2.9. scrollPosition, zoomLevel
-- 4.1.3. Implement openTab logic
-  - 4.1.3.1. Get item from ItemManager
-  - 4.1.3.2. Acquire webview from CEF pool (for web) or create MarkText view (for note)
-  - 4.1.3.3. Create Tab object
-  - 4.1.3.4. Add to tabs array
-  - 4.1.3.5. Set as active tab
-  - 4.1.3.6. Emit tabOpened event
-- 4.1.4. Implement closeTab logic
-  - 4.1.4.1. Remove tab from tabs array
-  - 4.1.4.2. Release webview to pool
-  - 4.1.4.3. Update activeTabIndex if needed
-  - 4.1.4.4. Emit tabClosed event
-  - 4.1.4.5. Item remains in workspace (do NOT delete)
-- 4.1.5. Write unit tests for TabManager
-- 4.1.6. Write integration tests for tab lifecycle
-
-### 4.2. Tab Limit Warning 🚀
-**Dependencies**: 4.1 complete, clarification C applied
-
-- 4.2.1. Implement soft limit check (20 tabs)
-  - 4.2.1.1. Check tabs.length before opening new tab
-  - 4.2.1.2. If >= 20: emit warning event
-  - 4.2.1.3. Allow tab to open (no hard block)
-- 4.2.2. Create warning UI component (React)
-  - 4.2.2.1. Display toast: "20+ tabs open, performance may be impacted"
-  - 4.2.2.2. Show for 5 seconds
-  - 4.2.2.3. Allow user to dismiss
-  - 4.2.2.4. Add yellow border to tab bar
-- 4.2.3. Log tab count metrics
-  - 4.2.3.1. Track peak tab count per session
-  - 4.2.3.2. Log when warning triggered
-- 4.2.4. Write unit tests for limit logic
-- 4.2.5. Write E2E tests for warning display
-
-### 4.3. Tab-Item Synchronization 🎯
-**Dependencies**: 3.2, 4.1 complete
-
-- 4.3.1. Implement openItemInTab(itemId)
-  - 4.3.1.1. Get item from WorkspaceManager
-  - 4.3.1.2. Call TabManager.openTab(itemId)
-  - 4.3.1.3. Update item.lastOpenedAt timestamp
-  - 4.3.1.4. Return tab object
-- 4.3.2. Implement onNavigationCommitted handler (from CEF)
-  - 4.3.2.1. Receive (tabId, url) from CEF LoadHandler
-  - 4.3.2.2. Run DuplicationDetector.checkDuplicate(workspaceId, url)
-  - 4.3.2.3. If duplicate: focus existing tab, close current
-  - 4.3.2.4. If not: ItemManager.createWebItem(workspaceId, url)
-  - 4.3.2.5. Update tab.itemId to new item
-  - 4.3.2.6. Emit tabUpdated event
-- 4.3.3. Handle title/favicon updates
-  - 4.3.3.1. Receive updates from CEF DisplayHandler
-  - 4.3.3.2. Update tab.title, tab.favicon
-  - 4.3.3.3. Update item.title in database
-  - 4.3.3.4. Emit tabUpdated event
-- 4.3.4. Write unit tests for synchronization logic
-- 4.3.5. Write integration tests for full sync flow
-
-### 4.4. Tab State Persistence 🚀
-**Dependencies**: 2.3, 4.1 complete, clarification C applied
-
-- 4.4.1. Serialize tab state for session storage
-  - 4.4.1.1. Extract tabs array → JSON-serializable format
-  - 4.4.1.2. Include itemId, url, scrollPosition, zoomLevel
-  - 4.4.1.3. Exclude webviewId (transient)
-  - 4.4.1.4. Store activeTabIndex
-- 4.4.2. Implement tab restoration on startup
-  - 4.4.2.1. Load session state from SessionStore
-  - 4.4.2.2. For each tab in session.tabs: TabManager.openTab(tab.itemId)
-  - 4.4.2.3. Restore scroll position, zoom level
-  - 4.4.2.4. Set activeTabIndex
-  - 4.4.2.5. Log restoration success/failure
-- 4.4.3. Handle restoration failures
-  - 4.4.3.1. If item no longer exists: skip tab
-  - 4.4.3.2. If webview creation fails: retry once
-  - 4.4.3.3. Log skipped tabs
-  - 4.4.3.4. Notify user of partial restoration
-- 4.4.4. Write unit tests for serialization
-- 4.4.5. Write integration tests for full crash recovery
-
-### 4.5. Navigation Controls 🎯
-**Dependencies**: 1.6, 4.1 complete
-
-- 4.5.1. Implement back() for active tab
-  - 4.5.1.1. Get activeTab
-  - 4.5.1.2. Call CEF GoBack() on tab.webviewId
-  - 4.5.1.3. Update tab state
-- 4.5.2. Implement forward() for active tab
-  - 4.5.2.1. Get activeTab
-  - 4.5.2.2. Call CEF GoForward() on tab.webviewId
-  - 4.5.2.3. Update tab state
-- 4.5.3. Implement reload() for active tab
-  - 4.5.3.1. Get activeTab
-  - 4.5.3.2. Call CEF Reload() on tab.webviewId
-- 4.5.4. Expose canGoBack(), canGoForward() queries
-  - 4.5.4.1. Query CEF navigation state
-  - 4.5.4.2. Return boolean
-  - 4.5.4.3. Update UI button states
-- 4.5.5. Write unit tests for navigation
-- 4.5.6. Write E2E tests for back/forward/reload
+**Acceptance Criteria**:
+- `npm test` runs Vitest
+- `npm run test:e2e` runs Playwright
+- Coverage reports generated
+- Sample tests pass
 
 ---
 
-## 5. MarkText Integration Module
+### T006: Set Up CI/CD Pipeline 🎯
+**Priority**: P1
+**Dependencies**: T005
+**Estimated Time**: 3 hours
+**Parallel**: Can run alongside T007-T008
 
-### 5.1. Protocol Handler Setup 🎯
-**Dependencies**: 0.2 complete
+**Tasks**:
+1. Create `.github/workflows/ci.yml`
+   - Matrix build: [ubuntu-latest, macos-latest, windows-latest]
+   - Steps: install, lint, test, build
+   - Upload build artifacts
+2. Configure linting
+   - ESLint for TypeScript
+   - Prettier for formatting
+   - Pre-commit hooks (husky)
+3. Set up code coverage
+   - Report to Codecov or similar
+   - Enforce 70% minimum coverage
+4. Configure Dependabot
+   - Auto-update dependencies
+   - Security vulnerability scanning
 
-- 5.1.1. Create EditorProtocol class (EditorProtocol.ts)
-  - 5.1.1.1. Register custom protocol: app://editor
-  - 5.1.1.2. Handle requests: app://editor/<noteId>
-  - 5.1.1.3. Load note content from file system
-  - 5.1.1.4. Return HTML with MarkText renderer embedded
-- 5.1.2. Set up protocol privileges
-  - 5.1.2.1. Allow service workers
-  - 5.1.2.2. Allow fetch API
-  - 5.1.2.3. Enable standard security
-- 5.1.3. Write unit tests for protocol handling
-
-### 5.2. MarkText Renderer Integration 🎯
-**Dependencies**: 5.1 complete
-
-- 5.2.1. Integrate MarkText library
-  - 5.2.1.1. Install MarkText as npm dependency
-  - 5.2.1.2. Import MarkText component
-  - 5.2.1.3. Configure MarkText options (syntax highlight, preview, etc.)
-- 5.2.2. Create MarkTextRenderer component (React)
-  - 5.2.2.1. Receive noteId as prop
-  - 5.2.2.2. Load note content from file system
-  - 5.2.2.3. Initialize MarkText with content
-  - 5.2.2.4. Render editor + preview split view
-  - 5.2.2.5. Handle onChange events
-- 5.2.3. Implement split view layout
-  - 5.2.3.1. Left pane: Markdown source editor
-  - 5.2.3.2. Right pane: Live preview
-  - 5.2.3.3. Resizable splitter between panes
-  - 5.2.3.4. Sync scroll position between editor and preview
-- 5.2.4. Add toolbar
-  - 5.2.4.1. Bold, Italic, Strikethrough
-  - 5.2.4.2. Heading levels (H1-H6)
-  - 5.2.4.3. Lists (ordered, unordered)
-  - 5.2.4.4. Links, Images
-  - 5.2.4.5. Code blocks, Tables
-- 5.2.5. Write unit tests for renderer component
-- 5.2.6. Write E2E tests for editor functionality
-
-### 5.3. Autosave Manager 🚀
-**Dependencies**: 5.2 complete, clarification B applied
-
-- 5.3.1. Create AutosaveManager class (AutosaveManager.ts)
-  - 5.3.1.1. Maintain map of noteId → debounce timer
-  - 5.3.1.2. Expose scheduleSave(noteId, content) method
-  - 5.3.1.3. Cancel existing timer for noteId
-  - 5.3.1.4. Start new timer: 500ms
-  - 5.3.1.5. On timer complete: save content
-- 5.3.2. Implement save logic
-  - 5.3.2.1. Write content to notes/<noteId>.md
-  - 5.3.2.2. Use atomic write (temp + rename)
-  - 5.3.2.3. UPDATE items SET updated_at=NOW() WHERE id=noteId
-  - 5.3.2.4. Emit saved event with timestamp
-- 5.3.3. Create save indicator UI
-  - 5.3.3.1. Display "Saved at HH:MM:SS" in editor status bar
-  - 5.3.3.2. Show "Saving..." while timer active
-  - 5.3.3.3. Show "Save failed" on error with retry button
-  - 5.3.3.4. Update timestamp on successful save
-- 5.3.4. Handle edge cases
-  - 5.3.4.1. Tab closed while timer active: flush save immediately
-  - 5.3.4.2. App closing: flush all pending saves
-  - 5.3.4.3. Filesystem errors: retry once, then notify user
-- 5.3.5. Write unit tests for debounce logic
-- 5.3.6. Write integration tests for autosave flow
-
-### 5.4. Note File Management 🎯
-**Dependencies**: 2.2 complete
-
-- 5.4.1. Create notes/ directory structure
-  - 5.4.1.1. Store notes in userData/workspaces/<workspaceId>/notes/
-  - 5.4.1.2. One .md file per note item
-  - 5.4.1.3. File name = item UUID
-- 5.4.2. Implement readNoteContent(noteId)
-  - 5.4.2.1. Construct file path
-  - 5.4.2.2. Read file content (UTF-8)
-  - 5.4.2.3. Return Markdown string
-  - 5.4.2.4. Handle file not found (create empty)
-- 5.4.3. Implement writeNoteContent(noteId, content)
-  - 5.4.3.1. Construct file path
-  - 5.4.3.2. Write to temp file
-  - 5.4.3.3. Rename temp to final (atomic)
-  - 5.4.3.4. Handle write errors
-- 5.4.4. Implement note deletion
-  - 5.4.4.1. Delete .md file when item deleted
-  - 5.4.4.2. Log deletion
-- 5.4.5. Write unit tests for file operations
-- 5.4.6. Write integration tests for note lifecycle
+**Acceptance Criteria**:
+- CI pipeline runs on push
+- All platforms build successfully
+- Coverage reports uploaded
+- Linting enforced
 
 ---
 
-## 6. AI Panel Manager Module
+### T007: Create Development Documentation 🎯
+**Priority**: P2
+**Dependencies**: T003
+**Estimated Time**: 2 hours
+**Parallel**: Can run with any task
 
-### 6.1. AI Provider Selector 🎯
-**Dependencies**: 0.2 complete
+**Tasks**:
+1. Create `specs/001-workspace-navigator/quickstart.md`
+   - Prerequisites (Node.js 20+, npm 10+)
+   - Installation steps
+   - Development mode commands
+   - Build commands
+   - Testing commands
+   - Troubleshooting common issues
+2. Update root README.md
+   - Project overview
+   - Architecture diagram
+   - Link to quickstart guide
+   - Contributing guidelines
 
-- 6.1.1. Create AISelector component (React)
-  - 6.1.1.1. Dropdown with AI provider options
-  - 6.1.1.2. Options: ChatGPT, Claude, Gemini, Custom URL
-  - 6.1.1.3. Store selected provider in localStorage
-  - 6.1.1.4. Emit onProviderChange event
-- 6.1.2. Define AI provider URLs
-  - 6.1.2.1. ChatGPT: https://chat.openai.com
-  - 6.1.2.2. Claude: https://claude.ai
-  - 6.1.2.3. Gemini: https://gemini.google.com
-  - 6.1.2.4. Custom: Allow user input
-- 6.1.3. Implement provider switching
-  - 6.1.3.1. Unload current AI webview
-  - 6.1.3.2. Create new CEF webview for selected provider
-  - 6.1.3.3. Load provider URL
-  - 6.1.3.4. Restore session cookies
-- 6.1.4. Write unit tests for selector
-- 6.1.5. Write E2E tests for provider switching
-
-### 6.2. AI WebView Management 🎯
-**Dependencies**: 1.2 complete
-
-- 6.2.1. Create AIWebView component (React)
-  - 6.2.1.1. Create dedicated CEF webview for AI
-  - 6.2.1.2. Separate from tab webviews (not pooled)
-  - 6.2.1.3. Load AI provider URL
-  - 6.2.1.4. Keep webview visible (never hidden)
-- 6.2.2. Configure AI webview settings
-  - 6.2.2.1. Enable cookies, localStorage
-  - 6.2.2.2. Allow third-party cookies (for OAuth)
-  - 6.2.2.3. Use dedicated cache directory per provider
-  - 6.2.2.4. Disable navigation (stay on AI domain)
-- 6.2.3. Handle webview lifecycle
-  - 6.2.3.1. Create webview on app startup
-  - 6.2.3.2. Persist across workspace switches
-  - 6.2.3.3. Destroy webview on provider change
-  - 6.2.3.4. Recreate webview on app restart
-- 6.2.4. Write unit tests for webview management
-- 6.2.5. Write E2E tests for AI panel visibility
-
-### 6.3. Session Persistence 🚀
-**Dependencies**: 6.2 complete
-
-- 6.3.1. Configure CEF cookie storage
-  - 6.3.1.1. Set cache_path per AI provider
-  - 6.3.1.2. Enable persist_session_cookies flag
-  - 6.3.1.3. Store cookies in userData/ai-sessions/<provider>/
-- 6.3.2. Verify session persistence
-  - 6.3.2.1. Login to AI provider
-  - 6.3.2.2. Close app
-  - 6.3.2.3. Reopen app
-  - 6.3.2.4. Verify still logged in
-- 6.3.3. Handle session expiration
-  - 6.3.3.1. Detect 401/403 responses
-  - 6.3.3.2. Notify user session expired
-  - 6.3.3.3. Allow re-login without clearing cookies
-- 6.3.4. Write integration tests for session persistence
-
-### 6.4. AI Panel UI 🎯
-**Dependencies**: 6.1, 6.2 complete
-
-- 6.4.1. Create AI panel layout
-  - 6.4.1.1. Top: AI provider selector dropdown
-  - 6.4.1.2. Below: Full-height webview container
-  - 6.4.1.3. Minimum width: 300px
-  - 6.4.1.4. Resizable splitter on left edge
-- 6.4.2. Style AI panel
-  - 6.4.2.1. Consistent with app theme (light/dark)
-  - 6.4.2.2. Border on left side
-  - 6.4.2.3. No close button (always visible)
-  - 6.4.2.4. Loading spinner while webview loads
-- 6.4.3. Handle webview errors
-  - 6.4.3.1. Display error message if AI site unreachable
-  - 6.4.3.2. Provide retry button
-  - 6.4.3.3. Log error details
-- 6.4.4. Write UI component tests
-- 6.4.5. Write E2E tests for panel interactions
+**Acceptance Criteria**:
+- New developer can set up project from quickstart.md
+- All commands documented
+- Troubleshooting section covers common errors
 
 ---
 
-## 7. UI/UX Module
+### T008: Milestone 1 Validation 🎯
+**Priority**: P0
+**Dependencies**: T001-T007
+**Estimated Time**: 1 hour
 
-### 7.1. Application Shell 🎯
-**Dependencies**: 0.2 complete
+**Validation Checklist**:
+- [ ] CEF code completely removed
+- [ ] Electron 30+ installed and working
+- [ ] Build system functional (dev + prod)
+- [ ] Tests run successfully
+- [ ] CI pipeline green on all platforms
+- [ ] Documentation complete
 
-- 7.1.1. Create main window (Electron BrowserWindow)
-  - 7.1.1.1. Set window size (1920x1080 default)
-  - 7.1.1.2. Set minimum size (1280x720)
-  - 7.1.1.3. Enable window frame, title bar
-  - 7.1.1.4. Load renderer HTML
-  - 7.1.1.5. Configure devTools (dev mode only)
-- 7.1.2. Create App component (React root)
-  - 7.1.2.1. Render three-column layout
-  - 7.1.2.2. Left: WorkspacePanel
-  - 7.1.2.3. Center: TabArea
-  - 7.1.2.4. Right: AIPanel
-  - 7.1.2.5. Handle window resize
-- 7.1.3. Implement menu bar
-  - 7.1.3.1. File menu: New Workspace, Open, Close, Exit
-  - 7.1.3.2. Edit menu: Cut, Copy, Paste, Select All
-  - 7.1.3.3. View menu: Reload, Toggle DevTools, Theme
-  - 7.1.3.4. Workspace menu: Switch, Delete
-  - 7.1.3.5. Window menu: Minimize, Maximize, Close
-  - 7.1.3.6. Help menu: Documentation, About
-- 7.1.4. Write UI component tests
-- 7.1.5. Write E2E tests for window lifecycle
-
-### 7.2. Workspace Panel (Left Column) 🎯
-**Dependencies**: 3.1, 3.4 complete
-
-- 7.2.1. Create WorkspacePanel component
-  - 7.2.1.1. Render workspace selector dropdown (top)
-  - 7.2.1.2. Render search bar
-  - 7.2.1.3. Render FileTree component
-  - 7.2.1.4. Render action buttons (New Folder, New Note)
-- 7.2.2. Create FileTree component
-  - 7.2.2.1. Render hierarchical tree from workspace data
-  - 7.2.2.2. Use recursive component for nested folders
-  - 7.2.2.3. Display icons: 📁 folder, 🌐 web, 📝 note
-  - 7.2.2.4. Show badge counts on folders
-  - 7.2.2.5. Expand/collapse folders on click
-- 7.2.3. Create ItemNode component
-  - 7.2.3.1. Render item with icon, title
-  - 7.2.3.2. Show favicon for web items
-  - 7.2.3.3. Truncate long titles with tooltip
-  - 7.2.3.4. Highlight on hover
-  - 7.2.3.5. Highlight when selected
-- 7.2.4. Implement context menu
-  - 7.2.4.1. Right-click folder: New Folder, New Note, Rename, Delete
-  - 7.2.4.2. Right-click item: Open, Rename, Move to, Delete
-  - 7.2.4.3. Execute actions via IPC to main process
-- 7.2.5. Write UI component tests
-- 7.2.6. Write E2E tests for tree interactions
-
-### 7.3. Drag & Drop 🚀
-**Dependencies**: 7.2 complete
-
-- 7.3.1. Implement drag source
-  - 7.3.1.1. Make ItemNode draggable
-  - 7.3.1.2. Set drag data: itemId, sourceFolder
-  - 7.3.1.3. Show drag preview (semi-transparent item)
-- 7.3.2. Implement drop target
-  - 7.3.2.1. Make folders accept drops
-  - 7.3.2.2. Highlight folder on dragEnter
-  - 7.3.2.3. Remove highlight on dragLeave
-  - 7.3.2.4. Handle drop event
-- 7.3.3. Implement move validation
-  - 7.3.3.1. Call FolderManager.validateMove(itemId, targetFolderId)
-  - 7.3.3.2. If invalid: show error toast, revert UI
-  - 7.3.3.3. If valid: ItemManager.moveItem(), update UI
-- 7.3.4. Add visual feedback
-  - 7.3.4.1. Dashed outline on drop target
-  - 7.3.4.2. Drop not allowed cursor for invalid targets
-  - 7.3.4.3. Smooth animation for item move
-- 7.3.5. Write unit tests for drag-drop logic
-- 7.3.6. Write E2E tests for drag-drop flow
-
-### 7.4. Tab Area (Center Column) 🎯
-**Dependencies**: 4.1 complete
-
-- 7.4.1. Create TabArea component
-  - 7.4.1.1. Render TabBar at top
-  - 7.4.1.2. Render active tab content below
-  - 7.4.1.3. Handle tab switching
-- 7.4.2. Create TabBar component
-  - 7.4.2.1. Render horizontal list of tabs
-  - 7.4.2.2. Each tab: favicon/icon, title, close button
-  - 7.4.2.3. Highlight active tab
-  - 7.4.2.4. Show loading spinner for loading tabs
-  - 7.4.2.5. Show modified dot for unsaved notes
-  - 7.4.2.6. Auto-scroll to active tab
-  - 7.4.2.7. New tab button (+) at end
-- 7.4.3. Implement tab drag-to-reorder
-  - 7.4.3.1. Make tabs draggable horizontally
-  - 7.4.3.2. Show drop indicator line
-  - 7.4.3.3. Call TabManager.reorderTab() on drop
-  - 7.4.3.4. Animate tab movement
-- 7.4.4. Create WebTab component
-  - 7.4.4.1. Render CEF webview container
-  - 7.4.4.2. Render address bar (URL input)
-  - 7.4.4.3. Render navigation buttons (back, forward, refresh)
-  - 7.4.4.4. Render loading progress bar
-  - 7.4.4.5. Handle navigation input (Enter key)
-- 7.4.5. Create MarkdownTab component
-  - 7.4.5.1. Render MarkTextRenderer
-  - 7.4.5.2. Render save indicator ("Saved at HH:MM:SS")
-  - 7.4.5.3. Render editor toolbar
-- 7.4.6. Write UI component tests
-- 7.4.7. Write E2E tests for tab management
-
-### 7.5. Search Functionality 🚀
-**Dependencies**: 2.6, 7.2 complete
-
-- 7.5.1. Create SearchBar component
-  - 7.5.1.1. Text input with search icon
-  - 7.5.1.2. Debounce input (300ms)
-  - 7.5.1.3. Call WorkspaceManager.searchItems(query)
-  - 7.5.1.4. Display results in dropdown
-- 7.5.2. Display search results
-  - 7.5.2.1. Show item icon, title, folder path
-  - 7.5.2.2. Highlight matching text
-  - 7.5.2.3. Limit to 100 results
-  - 7.5.2.4. Click result: open item in tab
-- 7.5.3. Filter tree view (live search)
-  - 7.5.3.1. Show only matching items + their parent folders
-  - 7.5.3.2. Expand folders containing matches
-  - 7.5.3.3. Clear filter on search clear
-- 7.5.4. Write UI component tests
-- 7.5.5. Write E2E tests for search
-
-### 7.6. Themes (Light/Dark) 🚀
-**Dependencies**: 7.1 complete
-
-- 7.6.1. Define theme variables (CSS custom properties)
-  - 7.6.1.1. Background colors (primary, secondary, tertiary)
-  - 7.6.1.2. Text colors (primary, secondary, muted)
-  - 7.6.1.3. Border colors
-  - 7.6.1.4. Accent colors (blue, red, yellow, green)
-- 7.6.2. Create light theme
-  - 7.6.2.1. White backgrounds
-  - 7.6.2.2. Dark gray text
-  - 7.6.2.3. Light gray borders
-- 7.6.3. Create dark theme
-  - 7.6.3.1. Dark gray backgrounds
-  - 7.6.3.2. Light gray text
-  - 7.6.3.3. Darker borders
-- 7.6.4. Implement theme switcher
-  - 7.6.4.1. Add toggle in View menu
-  - 7.6.4.2. Store preference in localStorage
-  - 7.6.4.3. Apply theme on startup
-  - 7.6.4.4. Update all components on theme change
-- 7.6.5. Apply theme to CEF webviews
-  - 7.6.5.1. Inject CSS into webviews
-  - 7.6.5.2. Respect prefers-color-scheme
-- 7.6.6. Write UI tests for themes
-- 7.6.7. Write E2E tests for theme switching
-
-### 7.7. Keyboard Shortcuts 🚀
-**Dependencies**: 7.1, 7.4 complete
-
-- 7.7.1. Implement global shortcuts
-  - 7.7.1.1. Ctrl/Cmd+T: New tab
-  - 7.7.1.2. Ctrl/Cmd+W: Close active tab
-  - 7.7.1.3. Ctrl/Cmd+Tab: Next tab
-  - 7.7.1.4. Ctrl/Cmd+Shift+Tab: Previous tab
-  - 7.7.1.5. Ctrl/Cmd+1-9: Jump to tab N
-  - 7.7.1.6. Ctrl/Cmd+F: Focus search
-  - 7.7.1.7. Ctrl/Cmd+N: New note
-  - 7.7.1.8. Ctrl/Cmd+Shift+N: New folder
-- 7.7.2. Implement web tab shortcuts
-  - 7.7.2.1. Ctrl/Cmd+L: Focus address bar
-  - 7.7.2.2. Ctrl/Cmd+R: Refresh
-  - 7.7.2.3. Alt+←: Back
-  - 7.7.2.4. Alt+→: Forward
-- 7.7.3. Implement note tab shortcuts
-  - 7.7.3.1. Ctrl/Cmd+B: Bold
-  - 7.7.3.2. Ctrl/Cmd+I: Italic
-  - 7.7.3.3. Ctrl/Cmd+K: Insert link
-  - 7.7.3.4. Ctrl/Cmd+S: Manual save
-- 7.7.4. Create shortcut help dialog
-  - 7.7.4.1. List all shortcuts
-  - 7.7.4.2. Grouped by context (global, web, note)
-  - 7.7.4.3. Accessible via Help menu or Ctrl+?
-- 7.7.5. Write unit tests for shortcut handling
-- 7.7.6. Write E2E tests for shortcuts
+**Deliverable**: Clean Electron-only codebase ready for implementation
 
 ---
 
-## 8. Security Module
+## Phase 2: Core Infrastructure
 
-### 8.1. CEF Sandbox Enforcement 🎯
-**Dependencies**: 1.5 complete
+**Goal**: Database layer, IPC contracts, basic window management
+**Duration**: 1 week
 
-- 8.1.1. Verify sandbox enabled on startup
-  - 8.1.1.1. Check CEF command-line for --no-sandbox
-  - 8.1.1.2. Log error if sandbox disabled
-  - 8.1.1.3. Refuse to start if sandbox cannot be enabled
-- 8.1.2. Monitor sandbox status
-  - 8.1.2.1. Periodically verify subprocess sandboxing
-  - 8.1.2.2. Alert if sandbox breach detected
-- 8.1.3. Write security tests for sandbox
+### T009: Database Layer - Schema & Migrations 🎯
+**Priority**: P0 (Blocking)
+**Dependencies**: T008
+**Estimated Time**: 6 hours
 
-### 8.2. Content Security Policy 🎯
-**Dependencies**: 1.5 complete
+**Tasks**:
+1. Install better-sqlite3
+   - Add to package.json
+   - Build native module for Electron: `npm run rebuild`
+2. Create `src/core/storage/database.ts`
+   ```typescript
+   export class Database {
+     constructor(dbPath: string)
+     initialize(): void
+     close(): void
+     query<T>(sql: string, params: any[]): T[]
+     execute(sql: string, params: any[]): void
+   }
+   ```
+3. Create database schema (based on plan.md contracts/database-schema.sql)
+   - `workspaces` table
+   - `folders` table (with parent_id FK)
+   - `items` table (type: web | markdown)
+   - `session_state` table (for crash recovery)
+   - Indexes for performance
+4. Create migration system
+   - `src/core/storage/migrations/001-initial.sql`
+   - Migration runner in `database.ts`
+   - Track version with PRAGMA user_version
+5. Write unit tests
+   - Database initialization
+   - Schema creation
+   - Migration application
+   - CRUD operations
 
-- 8.2.1. Define CSP policy (SecurityPolicy.ts)
-  - 8.2.1.1. default-src 'self'
-  - 8.2.1.2. script-src 'self' 'unsafe-inline' 'unsafe-eval' (required for some web apps)
-  - 8.2.1.3. style-src 'self' 'unsafe-inline'
-  - 8.2.1.4. img-src 'self' data: https:
-  - 8.2.1.5. connect-src 'self' https:
-  - 8.2.1.6. frame-src 'self' https: (for AI iframes)
-  - 8.2.1.7. upgrade-insecure-requests
-- 8.2.2. Apply CSP to all web requests
-  - 8.2.2.1. Inject CSP header in CEF RequestHandler
-  - 8.2.2.2. Log CSP violations
-- 8.2.3. Write security tests for CSP
-
-### 8.3. Data Encryption 🚀
-**Dependencies**: 2.5 complete
-
-- 8.3.1. Generate encryption key on first launch
-  - 8.3.1.1. Derive from machine ID + optional password
-  - 8.3.1.2. Store key securely (OS keychain)
-  - 8.3.1.3. Log key generation
-- 8.3.2. Encrypt database at rest
-  - 8.3.2.1. Apply SQLCipher encryption
-  - 8.3.2.2. Verify encryption on startup
-- 8.3.3. Encrypt session state files
-  - 8.3.3.1. Use AES-256-GCM
-  - 8.3.3.2. Store IV with ciphertext
-- 8.3.4. Write security tests for encryption
-
-### 8.4. Audit Logging 🚀
-**Dependencies**: 0.1 complete
-
-- 8.4.1. Create audit logger (AuditLog.ts)
-  - 8.4.1.1. Log security-relevant events (login, access, changes)
-  - 8.4.1.2. Include timestamp, user action, resource
-  - 8.4.1.3. Write to dedicated audit.log file
-  - 8.4.1.4. Rotate logs daily
-- 8.4.2. Log critical events
-  - 8.4.2.1. Workspace creation/deletion
-  - 8.4.2.2. Item access (web + note)
-  - 8.4.2.3. Configuration changes
-  - 8.4.2.4. Encryption key usage
-  - 8.4.2.5. CSP violations
-- 8.4.3. Write unit tests for audit logging
+**Acceptance Criteria**:
+- Database initializes with correct schema
+- Migrations run automatically on startup
+- Foreign key constraints enforced
+- Unit tests pass (90%+ coverage)
 
 ---
 
-## 9. Crash Recovery Module
+### T010: Database Layer - Entity Access 🎯
+**Priority**: P0
+**Dependencies**: T009
+**Estimated Time**: 4 hours
 
-### 9.1. Crash Detection 🚀
-**Dependencies**: 2.4 complete, clarification C applied
+**Tasks**:
+1. Create `src/core/types/entities.ts`
+   ```typescript
+   export interface Workspace {
+     id: string
+     name: string
+     created_at: number
+     last_active_at: number
+   }
 
-- 9.1.1. Detect unclean shutdown
-  - 9.1.1.1. Set "running" flag on startup
-  - 9.1.1.2. Clear flag on clean exit
-  - 9.1.1.3. If flag still set on next launch: crash detected
-- 9.1.2. Validate workspace integrity on startup
-  - 9.1.2.1. Run IntegrityValidator.validate(lastWorkspace)
-  - 9.1.2.2. Check FK constraints
-  - 9.1.2.3. Check schema version
-  - 9.1.2.4. Log validation results
-- 9.1.3. Write unit tests for crash detection
+   export interface Folder {
+     id: string
+     workspace_id: string
+     parent_id: string | null
+     name: string
+     display_order: number
+   }
 
-### 9.2. Session Restoration 🚀
-**Dependencies**: 2.3, 4.4 complete, clarification C applied
+   export interface Item {
+     id: string
+     workspace_id: string
+     folder_id: string | null
+     type: 'web' | 'markdown'
+     url?: string
+     content?: string
+     title: string
+     favicon?: string
+     created_at: number
+   }
+   ```
+2. Create data access methods in `database.ts`
+   - Workspace CRUD
+   - Folder CRUD (with hierarchy query)
+   - Item CRUD (with filtering by folder)
+3. Add caching layer (in-memory)
+   - Cache workspace tree structure
+   - Invalidate on writes
+4. Write unit tests for all CRUD operations
 
-- 9.2.1. Load session state from JSON
-  - 9.2.1.1. Read session_state.json
-  - 9.2.1.2. Parse JSON (handle parse errors)
-  - 9.2.1.3. Validate session data structure
-- 9.2.2. Restore workspace
-  - 9.2.2.1. WorkspaceManager.open(session.workspaceId)
-  - 9.2.2.2. Load workspace tree
-  - 9.2.2.3. Hydrate in-memory state
-- 9.2.3. Restore tabs
-  - 9.2.3.1. For each tab in session.tabs: TabManager.openTab(tab.itemId)
-  - 9.2.3.2. Restore scroll position, zoom level
-  - 9.2.3.3. Set activeTabIndex
-  - 9.2.3.4. Skip tabs for non-existent items
-- 9.2.4. Restore window geometry
-  - 9.2.4.1. Apply window position (x, y)
-  - 9.2.4.2. Apply window size (width, height)
-  - 9.2.4.3. Ensure window is on visible screen
-- 9.2.5. Write integration tests for full restoration
-
-### 9.3. Backup & Recovery 🚀
-**Dependencies**: 2.4 complete
-
-- 9.3.1. Create backup on session save
-  - 9.3.1.1. Copy session_state.json to session_state.backup.json
-  - 9.3.1.2. Keep last 3 backups (rotate)
-- 9.3.2. Restore from backup on corruption
-  - 9.3.2.1. If session_state.json corrupt: try .backup
-  - 9.3.2.2. If .backup valid: restore from backup
-  - 9.3.2.3. Log restoration event
-  - 9.3.2.4. Notify user of recovery
-- 9.3.3. Database backup
-  - 9.3.3.1. Create workspace.db.backup on clean exit
-  - 9.3.3.2. Restore from .backup if DB corrupt
-- 9.3.4. Write integration tests for backup/restore
-
-### 9.4. User Notification 🚀
-**Dependencies**: 9.2 complete
-
-- 9.4.1. Display recovery status on startup
-  - 9.4.1.1. If restored successfully: "Session restored"
-  - 9.4.1.2. If partial restore: "Some tabs could not be restored"
-  - 9.4.1.3. If failed: "Could not restore previous session"
-- 9.4.2. Provide manual recovery option
-  - 9.4.2.1. Show "Restore previous session" button if auto-restore failed
-  - 9.4.2.2. Allow user to retry restoration
-  - 9.4.2.3. Provide "Start fresh" option
-- 9.4.3. Write UI tests for recovery notifications
+**Acceptance Criteria**:
+- All entity types can be created/read/updated/deleted
+- Cascading deletes work correctly
+- Caching improves read performance
+- Unit tests pass
 
 ---
 
-## 10. Multi-Platform Build Module
+### T011: IPC Contracts Definition 🎯
+**Priority**: P0
+**Dependencies**: T010
+**Estimated Time**: 3 hours
 
-### 10.1. Windows Build 🚀
-**Dependencies**: 0.2, 0.3 complete
+**Tasks**:
+1. Create `src/core/types/contracts.ts` (based on plan.md)
+   ```typescript
+   export interface WorkspaceAPI {
+     // Workspace operations
+     createWorkspace(name: string): Promise<Workspace>
+     getWorkspace(id: string): Promise<Workspace>
+     getAllWorkspaces(): Promise<Workspace[]>
+     deleteWorkspace(id: string): Promise<void>
 
-- 10.1.1. Configure electron-builder for Windows
-  - 10.1.1.1. NSIS installer target
-  - 10.1.1.2. Portable .exe target
-  - 10.1.1.3. Set app icon (.ico)
-  - 10.1.1.4. Configure installer options (per-user vs. per-machine)
-- 10.1.2. Build CEF native addon for Windows
-  - 10.1.2.1. Compile C++ with MSVC
-  - 10.1.2.2. Link CEF libraries (.lib, .dll)
-  - 10.1.2.3. Package DLLs in build output
-- 10.1.3. Test on Windows 10, Windows 11
-  - 10.1.3.1. Verify installation
-  - 10.1.3.2. Verify CEF webview rendering
-  - 10.1.3.3. Verify performance targets
-- 10.1.4. Sign Windows binaries (code signing certificate)
-  - 10.1.4.1. Obtain code signing cert
-  - 10.1.4.2. Configure electron-builder signing
-  - 10.1.4.3. Verify signature after build
-- 10.1.5. Create installer artifacts
-  - 10.1.5.1. NSIS installer .exe
-  - 10.1.5.2. Portable .exe
-  - 10.1.5.3. Upload to dist/
+     // Folder operations
+     createFolder(workspaceId: string, name: string, parentId?: string): Promise<Folder>
+     renameFolder(folderId: string, newName: string): Promise<void>
+     deleteFolder(folderId: string, deleteItems: boolean): Promise<void>
 
-### 10.2. macOS Build 🚀
-**Dependencies**: 0.2, 0.3 complete
+     // Item operations
+     createWebItem(workspaceId: string, url: string, folderId?: string): Promise<Item>
+     createMarkdownItem(workspaceId: string, title: string, folderId?: string): Promise<Item>
+     openItem(itemId: string): Promise<void>
+     moveItem(itemId: string, targetFolderId: string): Promise<void>
 
-- 10.2.1. Configure electron-builder for macOS
-  - 10.2.1.1. DMG target
-  - 10.2.1.2. Zip target
-  - 10.2.1.3. Set app icon (.icns)
-  - 10.2.1.4. Enable hardened runtime
-  - 10.2.1.5. Disable gatekeeper assess
-- 10.2.2. Build CEF native addon for macOS
-  - 10.2.2.1. Compile C++ with clang
-  - 10.2.2.2. Link CEF framework
-  - 10.2.2.3. Package framework in app bundle
-- 10.2.3. Test on macOS 12 (Monterey), macOS 13 (Ventura)
-  - 10.2.3.1. Verify installation
-  - 10.2.3.2. Verify CEF webview rendering
-  - 10.2.3.3. Verify performance targets
-- 10.2.4. Sign and notarize macOS app
-  - 10.2.4.1. Obtain Apple Developer ID
-  - 10.2.4.2. Sign app bundle
-  - 10.2.4.3. Notarize with Apple
-  - 10.2.4.4. Staple notarization ticket
-- 10.2.5. Create installer artifacts
-  - 10.2.5.1. DMG disk image
-  - 10.2.5.2. Zip archive
-  - 10.2.5.3. Upload to dist/
+     // Browser operations
+     navigateTab(url: string): Promise<void>
+     goBack(): Promise<void>
+     goForward(): Promise<void>
+     reload(): Promise<void>
+     closeTab(tabId: string): Promise<void>
+   }
+   ```
+2. Create event types
+   ```typescript
+   export type WorkspaceEvent =
+     | { type: 'workspace:created', workspace: Workspace }
+     | { type: 'item:created', item: Item }
+     | { type: 'folder:created', folder: Folder }
+     // ...etc
+   ```
+3. Document all contracts in comments (TSDoc)
 
-### 10.3. Linux Build 🚀
-**Dependencies**: 0.2, 0.3 complete
-
-- 10.3.1. Configure electron-builder for Linux
-  - 10.3.1.1. AppImage target
-  - 10.3.1.2. Debian package (.deb) target
-  - 10.3.1.3. Set app icon (.png)
-  - 10.3.1.4. Set desktop file category (Utility)
-- 10.3.2. Build CEF native addon for Linux
-  - 10.3.2.1. Compile C++ with GCC
-  - 10.3.2.2. Link CEF shared libraries (.so)
-  - 10.3.2.3. Package .so files in build output
-- 10.3.3. Test on Ubuntu 20.04, Ubuntu 22.04
-  - 10.3.3.1. Verify installation
-  - 10.3.3.2. Verify CEF webview rendering
-  - 10.3.3.3. Verify performance targets
-- 10.3.4. Create installer artifacts
-  - 10.3.4.1. AppImage
-  - 10.3.4.2. .deb package
-  - 10.3.4.3. Upload to dist/
-
-### 10.4. Cross-Platform Testing 🚀
-**Dependencies**: 10.1, 10.2, 10.3 complete
-
-- 10.4.1. Set up test matrix (Win, Mac, Linux)
-  - 10.4.1.1. Create VMs or use cloud CI
-  - 10.4.1.2. Install dependencies on each platform
-  - 10.4.1.3. Run build on each platform
-- 10.4.2. Verify feature parity
-  - 10.4.2.1. All features work on all platforms
-  - 10.4.2.2. No platform-specific bugs
-  - 10.4.2.3. Consistent UI/UX
-- 10.4.3. Verify performance parity
-  - 10.4.3.1. Launch time <2s on all platforms
-  - 10.4.3.2. Tab creation <200ms on all platforms
-  - 10.4.3.3. Memory usage comparable
-- 10.4.4. Document platform-specific quirks
-  - 10.4.4.1. List known issues per platform
-  - 10.4.4.2. Document workarounds
-  - 10.4.4.3. Create platform-specific tests
+**Acceptance Criteria**:
+- All IPC contracts defined with TypeScript types
+- Events defined for all state changes
+- Full TSDoc documentation
 
 ---
 
-## 11. QA & Automation Module
+### T012: IPC Bridge Implementation 🎯
+**Priority**: P0
+**Dependencies**: T011
+**Estimated Time**: 5 hours
 
-### 11.1. Unit Testing 🎯
-**Dependencies**: 0.4 complete
+**Tasks**:
+1. Create `src/main/ipc-handlers.ts`
+   - Register handlers for all WorkspaceAPI methods
+   - Use `ipcMain.handle()` for async requests
+   - Use `webContents.send()` for events
+2. Create `src/preload/index.ts`
+   - Expose safe IPC methods via contextBridge
+   - Create type-safe API for renderer
+   ```typescript
+   contextBridge.exposeInMainWorld('workspaceAPI', {
+     createWorkspace: (name: string) => ipcRenderer.invoke('workspace:create', name),
+     // ...all other methods
+     onWorkspaceEvent: (callback: (event: WorkspaceEvent) => void) => {
+       ipcRenderer.on('workspace:event', (_, event) => callback(event))
+     }
+   })
+   ```
+3. Create TypeScript declaration
+   - `src/types/electron.d.ts`
+   - Extend Window interface with workspaceAPI
+4. Write integration tests
+   - Mock IPC calls
+   - Verify data flows correctly
 
-- 11.1.1. Write unit tests for WorkspaceManager
-  - 11.1.1.1. Test createWorkspace()
-  - 11.1.1.2. Test openWorkspace()
-  - 11.1.1.3. Test deleteWorkspace()
-  - 11.1.1.4. Test event emission
-- 11.1.2. Write unit tests for ItemManager
-  - 11.1.2.1. Test createWebItem()
-  - 11.1.2.2. Test createNoteItem()
-  - 11.1.2.3. Test date folder logic
-  - 11.1.2.4. Test moveItem()
-- 11.1.3. Write unit tests for DuplicationDetector
-  - 11.1.3.1. Test same URL + same day + same folder detection
-  - 11.1.3.2. Test different day (no duplicate)
-  - 11.1.3.3. Test different folder (no duplicate)
-- 11.1.4. Write unit tests for TabManager
-  - 11.1.4.1. Test openTab()
-  - 11.1.4.2. Test closeTab()
-  - 11.1.4.3. Test tab limit warning
-- 11.1.5. Write unit tests for AutosaveManager
-  - 11.1.5.1. Test 500ms debounce
-  - 11.1.5.2. Test save flush on tab close
-  - 11.1.5.3. Test save retry on error
-- 11.1.6. Achieve 70%+ code coverage
-  - 11.1.6.1. Run coverage reports
-  - 11.1.6.2. Identify uncovered branches
-  - 11.1.6.3. Write tests for uncovered code
-  - 11.1.6.4. Update coverage threshold in Jest config
-
-### 11.2. Integration Testing 🚀
-**Dependencies**: 0.4 complete
-
-- 11.2.1. Write workspace-tab sync tests
-  - 11.2.1.1. Open workspace → open tabs → close app → reopen → verify tabs restored
-  - 11.2.1.2. Navigate to new URL → verify item created
-  - 11.2.1.3. Duplicate URL → verify focus existing tab
-- 11.2.2. Write crash recovery tests
-  - 11.2.2.1. Simulate crash (kill process)
-  - 11.2.2.2. Reopen app
-  - 11.2.2.3. Verify session restored
-  - 11.2.2.4. Verify integrity validation ran
-- 11.2.3. Write storage integrity tests
-  - 11.2.3.1. Corrupt database file
-  - 11.2.3.2. Start app
-  - 11.2.3.3. Verify auto-repair or backup restore
-- 11.2.4. Write multi-workspace tests
-  - 11.2.4.1. Create 3 workspaces
-  - 11.2.4.2. Switch between them
-  - 11.2.4.3. Verify isolation
-  - 11.2.4.4. Delete one workspace
-  - 11.2.4.5. Verify CASCADE delete
-
-### 11.3. End-to-End Testing 🚀
-**Dependencies**: 0.4 complete
-
-- 11.3.1. Write workspace creation E2E test
-  - 11.3.1.1. Launch app
-  - 11.3.1.2. Click File > New Workspace
-  - 11.3.1.3. Enter name
-  - 11.3.1.4. Verify workspace created
-  - 11.3.1.5. Verify UI updated
-- 11.3.2. Write web browsing E2E test
-  - 11.3.2.1. Open workspace
-  - 11.3.2.2. Open new tab
-  - 11.3.2.3. Navigate to https://example.com
-  - 11.3.2.4. Verify page loads
-  - 11.3.2.5. Verify item created in workspace
-- 11.3.3. Write note creation E2E test
-  - 11.3.3.1. Open workspace
-  - 11.3.3.2. Right-click folder > New Note
-  - 11.3.3.3. Type Markdown content
-  - 11.3.3.4. Wait 500ms
-  - 11.3.3.5. Verify "Saved at HH:MM:SS" appears
-- 11.3.4. Write session restore E2E test
-  - 11.3.4.1. Open workspace with 3 tabs
-  - 11.3.4.2. Force close app (kill process)
-  - 11.3.4.3. Reopen app
-  - 11.3.4.4. Verify 3 tabs restored
-  - 11.3.4.5. Verify URLs match
-- 11.3.5. Write AI panel E2E test
-  - 11.3.5.1. Open app
-  - 11.3.5.2. Select ChatGPT from AI selector
-  - 11.3.5.3. Verify chat.openai.com loads
-  - 11.3.5.4. Switch to Claude
-  - 11.3.5.5. Verify claude.ai loads
-
-### 11.4. Performance Testing 🚀
-**Dependencies**: All modules complete
-
-- 11.4.1. Test launch time
-  - 11.4.1.1. Measure time from process start to window interactive
-  - 11.4.1.2. Verify <2s on all platforms
-  - 11.4.1.3. Identify bottlenecks if over target
-  - 11.4.1.4. Optimize and re-test
-- 11.4.2. Test tab creation time
-  - 11.4.2.1. Measure time from click to webview rendered
-  - 11.4.2.2. Verify <200ms
-  - 11.4.2.3. Test with cold pool (no webviews available)
-  - 11.4.2.4. Test with warm pool (webviews available)
-- 11.4.3. Test search performance
-  - 11.4.3.1. Create workspace with 500 items
-  - 11.4.3.2. Measure search query time
-  - 11.4.3.3. Verify <1s
-  - 11.4.3.4. Test full-text search on notes
-- 11.4.4. Test memory usage
-  - 11.4.4.1. Measure baseline (0 tabs)
-  - 11.4.4.2. Measure with 10 tabs
-  - 11.4.4.3. Measure with 20 tabs
-  - 11.4.4.4. Verify targets: <500MB, <1.5GB, <2.5GB
-  - 11.4.4.5. Check for memory leaks (prolonged usage)
-
-### 11.5. Security Testing 🚀
-**Dependencies**: 8.1, 8.2, 8.3 complete
-
-- 11.5.1. Test sandbox enforcement
-  - 11.5.1.1. Verify CEF sandbox enabled
-  - 11.5.1.2. Attempt to bypass sandbox (should fail)
-  - 11.5.1.3. Verify subprocesses are sandboxed
-- 11.5.2. Test CSP enforcement
-  - 11.5.2.1. Load page with inline scripts
-  - 11.5.2.2. Verify CSP blocks execution
-  - 11.5.2.3. Check CSP violation logs
-- 11.5.3. Test encryption
-  - 11.5.3.1. Verify database encrypted at rest
-  - 11.5.3.2. Attempt to open DB without key (should fail)
-  - 11.5.3.3. Verify session files encrypted
-- 11.5.4. Test data isolation
-  - 11.5.4.1. Create 2 workspaces
-  - 11.5.4.2. Verify no data leakage between workspaces
-  - 11.5.4.3. Delete workspace
-  - 11.5.4.4. Verify all data removed
+**Acceptance Criteria**:
+- All IPC methods work from renderer to main
+- Events propagate from main to renderer
+- Type safety enforced at compile time
+- Integration tests pass
 
 ---
 
-## 12. Documentation Module
+### T013: Main Window Setup 🎯
+**Priority**: P0
+**Dependencies**: T012
+**Estimated Time**: 4 hours
 
-### 12.1. User Documentation 🚀
-**Dependencies**: All features complete
+**Tasks**:
+1. Create `src/main/window-manager.ts`
+   ```typescript
+   export class WindowManager {
+     private mainWindow: BrowserWindow | null = null
 
-- 12.1.1. Write user manual
-  - 12.1.1.1. Getting started guide
-  - 12.1.1.2. Creating workspaces
-  - 12.1.1.3. Managing items and folders
-  - 12.1.1.4. Using tabs
-  - 12.1.1.5. Markdown editing
-  - 12.1.1.6. AI panel usage
-  - 12.1.1.7. Keyboard shortcuts reference
-- 12.1.2. Create FAQ
-  - 12.1.2.1. How do I...?
-  - 12.1.2.2. Troubleshooting common issues
-  - 12.1.2.3. Performance tips
-  - 12.1.2.4. Security and privacy
-- 12.1.3. Record video tutorials
-  - 12.1.3.1. Quick start (5 minutes)
-  - 12.1.3.2. Advanced features (15 minutes)
-  - 12.1.3.3. Tips and tricks (10 minutes)
+     createMainWindow(): void
+     getMainWindow(): BrowserWindow
+     restoreWindowGeometry(geometry: WindowGeometry): void
+     getWindowGeometry(): WindowGeometry
+   }
+   ```
+2. Implement window creation
+   - Default size: 1920x1080
+   - Minimum size: 1280x720
+   - Enable web preferences for security
+   - Load renderer HTML
+3. Implement window state persistence
+   - Save position/size on move/resize
+   - Restore on startup
+   - Handle multi-monitor scenarios
+4. Set up window event handlers
+   - Close handler (save state)
+   - Minimize/maximize handlers
+   - Focus handlers
+5. Create main.html template
+   - Basic HTML shell
+   - Load bundled renderer JS
+   - Include React root div
 
-### 12.2. Developer Documentation 🚀
-**Dependencies**: All modules complete
-
-- 12.2.1. Write architecture overview
-  - 12.2.1.1. System diagram
-  - 12.2.1.2. Module descriptions
-  - 12.2.1.3. Data flow diagrams
-  - 12.2.1.4. Security architecture
-- 12.2.2. Document internal APIs
-  - 12.2.2.1. WorkspaceManager API
-  - 12.2.2.2. ItemManager API
-  - 12.2.2.3. TabManager API
-  - 12.2.2.4. Storage Layer API
-  - 12.2.2.5. CEF Bridge API
-- 12.2.3. Write development setup guide
-  - 12.2.3.1. Prerequisites
-  - 12.2.3.2. Building from source
-  - 12.2.3.3. Running tests
-  - 12.2.3.4. Debugging tips
-- 12.2.4. Document code style guide
-  - 12.2.4.1. TypeScript conventions
-  - 12.2.4.2. C++ conventions
-  - 12.2.4.3. Naming standards
-  - 12.2.4.4. Comment guidelines
-
-### 12.3. Release Documentation 🚀
-**Dependencies**: 10.1, 10.2, 10.3 complete
-
-- 12.3.1. Write changelog
-  - 12.3.1.1. Version history
-  - 12.3.1.2. New features per version
-  - 12.3.1.3. Bug fixes per version
-  - 12.3.1.4. Breaking changes
-- 12.3.2. Create release notes
-  - 12.3.2.1. Highlights
-  - 12.3.2.2. Known issues
-  - 12.3.2.3. Upgrade instructions
-- 12.3.3. Document installation process
-  - 12.3.3.1. Windows installation
-  - 12.3.3.2. macOS installation
-  - 12.3.3.3. Linux installation
-  - 12.3.3.4. Troubleshooting installation issues
+**Acceptance Criteria**:
+- Main window opens with correct size
+- Window state persists across restarts
+- Window stays on visible screen
+- Renderer loads successfully
 
 ---
 
-## Task Summary by Phase
+### T014: React Application Shell 🎯
+**Priority**: P0
+**Dependencies**: T013
+**Estimated Time**: 4 hours
 
-### MVP Tasks (🎯) - Total: ~150 tasks
-**Duration**: 4 weeks (2 developers)
+**Tasks**:
+1. Create `src/renderer/index.tsx`
+   - React 18 root setup
+   - Render App component
+2. Create `src/renderer/App.tsx`
+   - Three-column layout (Flexbox)
+   - Left: Workspace panel (300px, resizable)
+   - Center: Tab area (flex: 1)
+   - Right: AI panel (300px, resizable)
+3. Create layout components
+   - `<ResizablePanels>` wrapper
+   - `<Splitter>` component for resize handles
+4. Set up CSS structure
+   - CSS modules or styled-components
+   - Base theme variables
+   - Layout styles
+5. Create placeholder components
+   - `<WorkspacePanel>` - "Workspace Tree Here"
+   - `<TabArea>` - "Tabs Here"
+   - `<AIPanel>` - "AI Assistant Here"
 
-**Critical Path**:
-1. Foundation (0.x) → 2 weeks
-2. CEF Core (1.1-1.2, 1.5-1.6) + Storage (2.1-2.2) → parallel, 1 week
-3. Workspace Engine (3.1-3.2, 3.4-3.5) → 1 week
-4. Tab Manager (4.1, 4.3) + MarkText (5.1-5.2, 5.4) → parallel, 1 week
-5. AI Panel (6.1-6.2, 6.4) + UI (7.1-7.2, 7.4) → parallel, 1 week
-6. Integration & Testing (11.1) → 1 week
-
-### V1 Tasks (🚀) - Total: ~200 tasks
-**Duration**: Additional 8 weeks after MVP (4 developers)
-
-**Critical Path**:
-1. Advanced features (1.3-1.4, 2.3-2.6, 3.3, 4.2, 4.4-4.5, 5.3) → 2 weeks
-2. UI polish (7.3, 7.5-7.7) → 2 weeks
-3. Security (8.1-8.4) + Crash Recovery (9.1-9.4) → parallel, 2 weeks
-4. Multi-platform builds (10.1-10.4) → 2 weeks
-5. QA (11.2-11.5) → 2 weeks
-6. Documentation (12.1-12.3) → 2 weeks
-
-### V2 Tasks (🔮) - Total: ~50 tasks
-**Duration**: Post-V1 (6-month roadmap)
-
-**Features**:
-- Cloud sync
-- Collaborative workspaces
-- Export/import
-- Plugin system
-- Mobile companion app
-- Advanced search
-- AI context sharing
+**Acceptance Criteria**:
+- Three-column layout renders correctly
+- Panels are resizable with splitters
+- Minimum panel widths enforced
+- Responsive to window resize
 
 ---
 
-## Dependency Summary
+### T015: State Management Setup 🎯
+**Priority**: P1
+**Dependencies**: T014
+**Estimated Time**: 3 hours
 
-**Foundation (0.x)** → Blocks all modules
+**Tasks**:
+1. Choose state management library
+   - Option A: Zustand (recommended - simpler)
+   - Option B: Redux Toolkit
+2. Create stores (using Zustand example)
+   - `src/renderer/store/workspace-store.ts`
+     - Current workspace
+     - Workspace list
+     - Folder tree
+   - `src/renderer/store/tab-store.ts`
+     - Open tabs
+     - Active tab index
+   - `src/renderer/store/ui-store.ts`
+     - Theme (light/dark)
+     - Panel sizes
+3. Create hooks
+   - `useWorkspace()`
+   - `useTabs()`
+   - `useTheme()`
+4. Connect stores to IPC
+   - Listen to workspace events
+   - Update store on events
 
-**CEF (1.x)** → Blocks Tab Manager (4.x), AI Panel (6.x)
-
-**Storage (2.x)** → Blocks Workspace Engine (3.x), Crash Recovery (9.x)
-
-**Workspace Engine (3.x)** → Blocks Tab Manager (4.x), UI (7.x)
-
-**Tab Manager (4.x)** → Blocks UI Tab Area (7.4)
-
-**MarkText (5.x)** → Blocks UI Tab Area (7.4)
-
-**AI Panel (6.x)** → Independent (parallel with other modules)
-
-**UI (7.x)** → Requires 3.x, 4.x, 5.x, 6.x
-
-**Security (8.x)** → Can be developed in parallel, applied late
-
-**Crash Recovery (9.x)** → Requires 2.x, 4.x
-
-**Multi-platform (10.x)** → Requires all features complete
-
-**QA (11.x)** → Continuous throughout, final validation at end
-
-**Documentation (12.x)** → Final phase
+**Acceptance Criteria**:
+- State updates trigger React re-renders
+- State persists across IPC calls
+- Hooks provide type-safe access
 
 ---
 
-**End of Task List**
+### T016: Error Handling & Logging 🎯
+**Priority**: P1
+**Dependencies**: T009
+**Estimated Time**: 3 hours
 
-This comprehensive task list covers all implementation work from project setup through V1 release. Each task is actionable, properly scoped, and organized by module with clear MVP/V1 designations and dependency tracking.
+**Tasks**:
+1. Set up logging library (winston or electron-log)
+2. Create `src/core/logger.ts`
+   - Log levels: error, warn, info, debug
+   - File output: logs/app.log (rotated daily)
+   - Console output in dev mode
+3. Create error handler utilities
+   - `src/core/errors.ts`
+   - Custom error classes (DatabaseError, IPCError, etc.)
+   - Error serialization for IPC
+4. Add global error handlers
+   - Main process: `process.on('uncaughtException')`
+   - Renderer: `window.onerror`, `window.onunhandledrejection`
+   - Log all errors with stack traces
+5. Create error boundary component (React)
+   - Catch renderer errors
+   - Display user-friendly message
+   - Log error details
+
+**Acceptance Criteria**:
+- All errors logged to file
+- User sees friendly error messages
+- Stack traces available for debugging
+- No crashes from unhandled errors
+
+---
+
+### T017: Milestone 2 Validation 🎯
+**Priority**: P0
+**Dependencies**: T009-T016
+**Estimated Time**: 2 hours
+
+**Validation Checklist**:
+- [ ] Database creates and migrates successfully
+- [ ] IPC communication works (main ↔ renderer)
+- [ ] Main window renders React app
+- [ ] Three-column layout displays
+- [ ] State management functional
+- [ ] Errors logged and handled gracefully
+- [ ] All unit tests pass
+- [ ] Integration tests pass
+
+**Deliverable**: Functional application shell with data layer
+
+---
+
+## Phase 3: Workspace Management (User Story 1 - Core Workspace)
+
+**Goal**: Implement workspace creation, folder hierarchy, item management
+**Duration**: 1 week
+
+### T018: Workspace Engine - Core Operations 🎯
+**Priority**: P0 (Blocking)
+**Dependencies**: T017
+**Estimated Time**: 6 hours
+
+**Tasks**:
+1. Create `src/core/workspace/workspace-engine.ts`
+   ```typescript
+   export class WorkspaceEngine {
+     constructor(database: Database)
+
+     createWorkspace(name: string): Promise<Workspace>
+     getWorkspace(id: string): Promise<Workspace>
+     getAllWorkspaces(): Promise<Workspace[]>
+     deleteWorkspace(id: string): Promise<void>
+     switchWorkspace(id: string): Promise<void>
+
+     private activeWorkspaceId: string | null
+   }
+   ```
+2. Implement createWorkspace
+   - Validate name (1-100 chars)
+   - Generate UUID for workspace
+   - INSERT into database
+   - Emit 'workspace:created' event
+3. Implement getWorkspace
+   - Query database by ID
+   - Return workspace or throw error
+4. Implement deleteWorkspace
+   - Show confirmation (via IPC event)
+   - CASCADE delete (folders, items)
+   - Emit 'workspace:deleted' event
+5. Implement switchWorkspace
+   - Save current workspace state
+   - Load new workspace tree
+   - Emit 'workspace:switched' event
+6. Write unit tests
+
+**Acceptance Criteria**:
+- Can create workspace with valid name
+- Can retrieve workspace by ID
+- Delete cascades to all folders/items
+- Switch workspace changes active context
+- Unit tests pass (90%+ coverage)
+
+---
+
+### T019: Folder Management 🎯
+**Priority**: P0
+**Dependencies**: T018
+**Estimated Time**: 5 hours
+
+**Tasks**:
+1. Create `src/core/workspace/folder-manager.ts`
+   ```typescript
+   export class FolderManager {
+     constructor(database: Database)
+
+     createFolder(workspaceId: string, name: string, parentId?: string): Promise<Folder>
+     renameFolder(folderId: string, newName: string): Promise<void>
+     moveFolder(folderId: string, newParentId: string): Promise<void>
+     deleteFolder(folderId: string, deleteItems: boolean): Promise<void>
+     getFolderHierarchy(workspaceId: string): Promise<FolderNode[]>
+   }
+   ```
+2. Implement createFolder
+   - Validate name (1-100 chars)
+   - Validate parent exists (if provided)
+   - Calculate display_order (max + 1)
+   - INSERT into database
+3. Implement getFolderHierarchy
+   - Query all folders for workspace
+   - Build tree structure (recursive)
+   - Sort by display_order
+   - Return root-level FolderNode[]
+4. Implement moveFolder
+   - Validate new parent exists
+   - Prevent circular references
+   - UPDATE parent_id
+5. Implement deleteFolder
+   - If deleteItems=true: CASCADE
+   - If deleteItems=false: Move items to parent or root
+   - Show confirmation with item count
+6. Write unit tests
+
+**Acceptance Criteria**:
+- Folders can be nested arbitrarily
+- Circular references prevented
+- Delete behavior matches specification
+- Hierarchy query returns correct tree
+- Unit tests pass
+
+---
+
+### T020: Auto Date Folders (Clarification B) 🎯
+**Priority**: P0
+**Dependencies**: T019
+**Estimated Time**: 3 hours
+
+**Tasks**:
+1. Create `src/core/workspace/date-folder-manager.ts`
+   ```typescript
+   export class DateFolderManager {
+     constructor(database: Database, folderManager: FolderManager)
+
+     ensureDateFolder(workspaceId: string, date: Date): Promise<string>
+   }
+   ```
+2. Implement ensureDateFolder
+   - Format date as DD.MM.YYYY (e.g., "24.11.2025")
+   - Query for folder with this name at workspace root (parentId=null)
+   - If exists: return folderId
+   - If not: create folder, return folderId
+3. Integrate with item creation (next task)
+   - Check if folderId is null (workspace root)
+   - If null: get/create date folder
+   - Assign item to date folder
+4. Write unit tests
+   - Same date = same folder
+   - Different dates = different folders
+   - Manual folder placement skips auto-folder
+
+**Acceptance Criteria**:
+- Items added to root auto-placed in date folders
+- Date format is DD.MM.YYYY
+- Folders created only once per date
+- Manual placement bypasses auto-folders
+- Unit tests pass
+
+---
+
+### T021: Item Management - Web Items 🎯
+**Priority**: P0
+**Dependencies**: T020
+**Estimated Time**: 5 hours
+
+**Tasks**:
+1. Create `src/core/workspace/item-manager.ts`
+   ```typescript
+   export class ItemManager {
+     constructor(
+       database: Database,
+       dateFolderManager: DateFolderManager
+     )
+
+     createWebItem(workspaceId: string, url: string, title: string, folderId?: string): Promise<Item>
+     createMarkdownItem(workspaceId: string, title: string, folderId?: string): Promise<Item>
+     updateItem(itemId: string, updates: Partial<Item>): Promise<void>
+     deleteItem(itemId: string): Promise<void>
+     moveItem(itemId: string, targetFolderId: string): Promise<void>
+     getItem(itemId: string): Promise<Item>
+   }
+   ```
+2. Implement createWebItem
+   - Validate URL format
+   - If folderId is null: get date folder
+   - Generate UUID for item
+   - INSERT with type='web'
+   - Emit 'item:created' event
+3. Implement updateItem
+   - Allow updating title, favicon, tags
+   - UPDATE in database
+   - Emit 'item:updated' event
+4. Implement deleteItem
+   - DELETE from database
+   - Emit 'item:deleted' event
+5. Implement moveItem
+   - Validate target folder exists
+   - UPDATE folder_id
+   - Emit 'item:moved' event
+6. Write unit tests
+
+**Acceptance Criteria**:
+- Web items created with URL, title, favicon
+- Items placed in date folders when folderId is null
+- Items can be moved between folders
+- Unit tests pass
+
+---
+
+### T022: Item Management - Markdown Items 🎯
+**Priority**: P0
+**Dependencies**: T021
+**Estimated Time**: 4 hours
+
+**Tasks**:
+1. Extend ItemManager with note file handling
+2. Implement createMarkdownItem
+   - If folderId is null: get date folder
+   - Generate UUID for item
+   - Create empty file: `userData/notes/<itemId>.md`
+   - INSERT with type='markdown', content=null
+   - Emit 'item:created' event
+3. Implement note file operations
+   - `readNoteContent(itemId): Promise<string>`
+   - `writeNoteContent(itemId, content): Promise<void>`
+   - Use atomic writes (temp file + rename)
+4. Implement deleteItem (note variant)
+   - DELETE from database
+   - Delete .md file
+   - Emit 'item:deleted' event
+5. Write unit tests
+
+**Acceptance Criteria**:
+- Markdown items create .md files
+- Note content persists to file
+- Atomic writes prevent corruption
+- Delete removes both DB entry and file
+- Unit tests pass
+
+---
+
+### T023: Workspace Panel UI 🎯
+**Priority**: P0
+**Dependencies**: T022
+**Estimated Time**: 8 hours
+
+**Tasks**:
+1. Create `src/renderer/components/WorkspacePanel.tsx`
+   - Workspace selector dropdown (top)
+   - Search bar
+   - File tree (scrollable)
+   - Action buttons (New Folder, New Note)
+2. Create `src/renderer/components/FolderTree.tsx`
+   - Recursive tree component
+   - Render folders with expand/collapse
+   - Render items with icons
+   - Handle click events
+3. Create `src/renderer/components/TreeNode.tsx`
+   - Folder node: 📁 icon, name, expand arrow, badge count
+   - Web item node: 🌐 or favicon, title
+   - Markdown item node: 📝 icon, title
+   - Hover effects
+   - Selected state
+4. Implement workspace selector
+   - Dropdown populated from workspace store
+   - Click workspace: call IPC switchWorkspace
+5. Implement action buttons
+   - "New Folder" button: show input dialog, call createFolder
+   - "New Note" button: call createMarkdownItem, open in tab
+6. Connect to state management
+   - Load workspaces on mount
+   - Subscribe to workspace events
+   - Update tree on item/folder changes
+7. Style components
+   - Tree indentation
+   - Icons
+   - Hover/selection colors
+
+**Acceptance Criteria**:
+- Workspace tree displays correctly
+- Can switch workspaces
+- Can create folders and notes from UI
+- Tree updates in real-time on changes
+- UI matches design mockups
+
+---
+
+### T024: Context Menu & Actions 🎯
+**Priority**: P1
+**Dependencies**: T023
+**Estimated Time**: 4 hours
+
+**Tasks**:
+1. Create `src/renderer/components/ContextMenu.tsx`
+   - Generic context menu component
+   - Position at mouse coordinates
+   - List of actions with icons
+2. Add context menu to tree nodes
+   - Right-click folder: New Folder, New Note, Rename, Delete
+   - Right-click item: Open, Rename, Move to, Delete
+3. Implement actions
+   - Rename: inline edit or dialog
+   - Delete: confirmation dialog with IPC call
+   - Move to: folder picker dialog
+4. Add keyboard shortcuts
+   - F2: Rename selected
+   - Delete: Delete selected (with confirmation)
+   - Ctrl+N: New note
+   - Ctrl+Shift+N: New folder
+
+**Acceptance Criteria**:
+- Context menu appears on right-click
+- All actions work correctly
+- Confirmations shown for destructive actions
+- Keyboard shortcuts work
+
+---
+
+### T025: Workspace Persistence & Restoration 🎯
+**Priority**: P0
+**Dependencies**: T024
+**Estimated Time**: 3 hours
+
+**Tasks**:
+1. Implement session state saving
+   - Save active workspace ID
+   - Save on workspace switch
+   - Save on app close
+2. Implement restoration on startup
+   - Read last active workspace from session
+   - Load workspace tree
+   - Update UI state
+3. Handle edge cases
+   - Workspace deleted: load first available or create new
+   - Corrupted session: start fresh
+   - No workspaces: prompt to create first
+4. Write integration tests
+   - Create workspace → close app → reopen → verify restored
+
+**Acceptance Criteria**:
+- Last workspace reopens on startup
+- Workspace tree fully loaded
+- No data loss across restarts
+- Integration tests pass
+
+---
+
+### T026: Milestone 3 Validation (User Story 1) 🎯
+**Priority**: P0
+**Dependencies**: T018-T025
+**Estimated Time**: 3 hours
+
+**Validation (Spec User Story 1 Acceptance Criteria)**:
+- [ ] AS1.1: Can create workspace "Research Project"
+- [ ] AS1.2: Web items auto-created with URL, title, favicon
+- [ ] AS1.3: Can create folder and drag 5 items into it
+- [ ] AS1.4: Date folders auto-created (DD.MM.YYYY format)
+- [ ] AS1.5: Can click saved item → opens in tab (prepare for Phase 4)
+- [ ] AS1.6: Close + reopen → all structure preserved
+
+**End-to-End Test**:
+1. Launch app
+2. Create workspace "Test Workspace"
+3. Add 5 web items
+4. Create folder "Chapter 1"
+5. Move 3 items to folder
+6. Close app
+7. Reopen app
+8. Verify workspace structure intact
+
+**Deliverable**: Functional workspace management (User Story 1 complete)
+
+---
+
+## Phase 4: BrowserView Integration & Tab Management (User Story 5)
+
+**Goal**: Implement Electron BrowserView for web tabs, tab lifecycle
+**Duration**: 1 week
+
+### T027: BrowserView Manager - Core 🎯
+**Priority**: P0 (Blocking)
+**Dependencies**: T026
+**Estimated Time**: 8 hours
+
+**Tasks**:
+1. Create `src/main/browser-view-manager.ts`
+   ```typescript
+   export class BrowserViewManager {
+     private views: Map<string, BrowserView> = new Map()
+     private availablePool: BrowserView[] = []
+     private maxPoolSize = 20
+
+     constructor(private mainWindow: BrowserWindow)
+
+     createView(tabId: string, url: string): BrowserView
+     showView(tabId: string): void
+     hideView(tabId: string): void
+     destroyView(tabId: string): void
+     navigateView(tabId: string, url: string): void
+
+     // Navigation
+     goBack(tabId: string): void
+     goForward(tabId: string): void
+     reload(tabId: string): void
+     canGoBack(tabId: string): boolean
+     canGoForward(tabId: string): boolean
+   }
+   ```
+2. Implement createView
+   - Check available pool first
+   - If available: reuse BrowserView
+   - If not: create new BrowserView
+   ```typescript
+   const view = new BrowserView({
+     webPreferences: {
+       nodeIntegration: false,
+       contextIsolation: true,
+       sandbox: true
+     }
+   })
+   ```
+   - Add to mainWindow: `mainWindow.addBrowserView(view)`
+   - Position view in center panel area
+   - Load URL: `view.webContents.loadURL(url)`
+   - Track in views Map
+3. Implement showView
+   - Get view from Map
+   - Call `view.setBounds()` with visible coordinates
+   - Hide all other views
+4. Implement hideView
+   - Set view bounds off-screen OR
+   - Call `mainWindow.removeBrowserView(view)` temporarily
+5. Implement destroyView
+   - Remove from mainWindow
+   - Destroy view: `view.webContents.destroy()`
+   - Return to pool OR remove from Map
+6. Implement navigation methods
+   - goBack: `view.webContents.goBack()`
+   - goForward: `view.webContents.goForward()`
+   - reload: `view.webContents.reload()`
+   - canGoBack: `view.webContents.canGoBack()`
+7. Set up webContents event handlers
+   - 'did-navigate': emit navigation event
+   - 'page-title-updated': emit title change
+   - 'page-favicon-updated': emit favicon change
+   - 'did-fail-load': emit error event
+8. Calculate bounds correctly
+   - Account for workspace panel width
+   - Account for tab bar height
+   - Account for AI panel width
+9. Write unit tests
+
+**Acceptance Criteria**:
+- BrowserView creates and displays web content
+- View positioning correct in layout
+- Navigation methods work
+- View pooling/reuse functional
+- Events propagate to main process
+- Unit tests pass
+
+---
+
+### T028: Tab Manager - Core 🎯
+**Priority**: P0
+**Dependencies**: T027
+**Estimated Time**: 6 hours
+
+**Tasks**:
+1. Create `src/main/tab-manager.ts`
+   ```typescript
+   export interface Tab {
+     id: string
+     itemId: string
+     type: 'web' | 'markdown'
+     url?: string
+     title: string
+     favicon?: string
+     isLoading: boolean
+   }
+
+   export class TabManager {
+     private tabs: Tab[] = []
+     private activeTabId: string | null = null
+
+     constructor(
+       private browserViewManager: BrowserViewManager,
+       private itemManager: ItemManager
+     )
+
+     openTab(itemId: string): Promise<Tab>
+     closeTab(tabId: string): void
+     switchTab(tabId: string): void
+     getActiveTab(): Tab | null
+     getAllTabs(): Tab[]
+   }
+   ```
+2. Implement openTab
+   - Get item from ItemManager
+   - Generate tab ID (UUID)
+   - If type='web':
+     - Create BrowserView via BrowserViewManager
+     - Load item.url
+   - If type='markdown':
+     - Mark for Markdown rendering (Phase 5)
+   - Add to tabs array
+   - Set as active tab
+   - Emit 'tab:opened' event
+3. Implement closeTab
+   - Remove from tabs array
+   - Destroy BrowserView
+   - If was active: switch to adjacent tab
+   - Emit 'tab:closed' event
+4. Implement switchTab
+   - Hide current active view
+   - Show target view
+   - Update activeTabId
+   - Emit 'tab:switched' event
+5. Wire up IPC handlers
+   - Handle 'tab:open' from renderer
+   - Handle 'tab:close' from renderer
+   - Handle 'tab:switch' from renderer
+6. Write unit tests
+
+**Acceptance Criteria**:
+- Can open multiple tabs
+- Switching tabs shows correct view
+- Closing tab removes it but keeps item
+- Active tab tracked correctly
+- Unit tests pass
+
+---
+
+### T029: BrowserView Event Handling 🎯
+**Priority**: P0
+**Dependencies**: T028
+**Estimated Time**: 5 hours
+
+**Tasks**:
+1. Set up webContents event listeners in BrowserViewManager
+2. Handle 'did-navigate' event
+   - Emit to TabManager with (tabId, newUrl)
+   - Update tab.url
+   - Trigger item creation if new URL (see T030)
+3. Handle 'page-title-updated' event
+   - Extract title
+   - Update tab.title
+   - Update item.title in database
+   - Emit 'tab:updated' event to renderer
+4. Handle 'page-favicon-updated' event
+   - Extract favicon URLs
+   - Download favicon as base64 (optional optimization)
+   - Update tab.favicon
+   - Update item.favicon in database
+5. Handle 'did-start-loading' event
+   - Set tab.isLoading = true
+   - Emit 'tab:loading' event
+6. Handle 'did-stop-loading' event
+   - Set tab.isLoading = false
+   - Emit 'tab:loaded' event
+7. Handle 'did-fail-load' event
+   - Check error code
+   - If not ERR_ABORTED: show error in tab
+   - Emit 'tab:error' event
+8. Forward events to renderer
+   - Use webContents.send() to main window
+   - Renderer updates tab UI
+
+**Acceptance Criteria**:
+- Tab title updates when page loads
+- Tab favicon updates when available
+- Loading state visible in UI
+- Failed loads show error page
+- All events reach renderer
+
+---
+
+### T030: Duplication Detector (Clarification B) 🎯
+**Priority**: P0
+**Dependencies**: T029
+**Estimated Time**: 4 hours
+
+**Tasks**:
+1. Create `src/core/workspace/duplication-detector.ts`
+   ```typescript
+   export class DuplicationDetector {
+     constructor(private database: Database)
+
+     checkDuplicate(workspaceId: string, url: string, contextFolderId: string | null): Promise<Item | null>
+   }
+   ```
+2. Implement checkDuplicate
+   - Query items WHERE:
+     - workspace_id = workspaceId
+     - url = url
+     - folder_id = contextFolderId (or IS NULL)
+     - DATE(created_at) = TODAY
+   - Return first match or null
+3. Integrate with navigation flow
+   - On 'did-navigate' event:
+     - Call duplicationDetector.checkDuplicate()
+     - If duplicate found:
+       - Focus existing tab with that item
+       - Close new tab
+       - Update item.lastOpenedAt (if tracked)
+     - If not duplicate:
+       - Create new web item (ItemManager)
+       - Link tab to new item
+4. Determine context folder
+   - Use last selected folder in workspace tree
+   - OR use parent folder of last opened item
+   - Default to null (root)
+5. Write unit tests
+   - Same URL + same day + same folder = duplicate
+   - Same URL + different day = not duplicate
+   - Same URL + different folder = not duplicate
+
+**Acceptance Criteria**:
+- Navigating to same URL (today, same folder) focuses existing tab
+- Different day creates new item
+- Different folder creates new item
+- Unit tests pass (all cases covered)
+
+---
+
+### T031: Tab Bar UI 🎯
+**Priority**: P0
+**Dependencies**: T030
+**Estimated Time**: 6 hours
+
+**Tasks**:
+1. Create `src/renderer/components/TabBar.tsx`
+   - Horizontal scrollable container
+   - Render Tab components
+   - New tab button (+) at end
+2. Create `src/renderer/components/Tab.tsx`
+   - Favicon or icon
+   - Title (truncated with tooltip)
+   - Loading spinner (if isLoading)
+   - Close button (X)
+   - Active state styling
+   - Hover effects
+3. Connect to tab store
+   - Subscribe to tab events
+   - Update tab list on changes
+   - Highlight active tab
+4. Implement tab interactions
+   - Click tab: call IPC to switch tab
+   - Click close (X): call IPC to close tab
+   - Click new (+): open new empty tab or show URL input
+5. Implement tab reordering (drag-and-drop)
+   - Make tabs draggable
+   - Show drop indicator
+   - Update tab order in store
+   - Persist order in session
+6. Style tab bar
+   - Fixed height (40px)
+   - Background color
+   - Tab separators
+   - Overflow scrolling with arrows
+
+**Acceptance Criteria**:
+- Tab bar shows all open tabs
+- Clicking tab switches view
+- Close button closes tab
+- Drag-drop reorders tabs
+- Loading state visible
+- UI matches design
+
+---
+
+### T032: Navigation Controls UI 🎯
+**Priority**: P0
+**Dependencies**: T031
+**Estimated Time**: 4 hours
+
+**Tasks**:
+1. Create `src/renderer/components/NavigationBar.tsx`
+   - Back button (← arrow)
+   - Forward button (→ arrow)
+   - Reload button (⟳ circular)
+   - URL input bar (address bar)
+   - Go button or Enter key
+2. Implement button states
+   - Back: disabled if !canGoBack
+   - Forward: disabled if !canGoForward
+   - Reload: always enabled
+3. Implement URL input
+   - Show current URL
+   - Editable text input
+   - On Enter: navigate to URL
+   - Validate URL format (add https:// if missing)
+4. Connect to IPC
+   - Back button: call IPC 'tab:goBack'
+   - Forward button: call IPC 'tab:goForward'
+   - Reload button: call IPC 'tab:reload'
+   - URL submit: call IPC 'tab:navigate'
+5. Update URL on navigation
+   - Subscribe to 'tab:updated' events
+   - Update URL input value
+6. Style navigation bar
+   - Place above BrowserView area
+   - Fixed height (50px)
+   - Button icons
+   - URL bar styling
+
+**Acceptance Criteria**:
+- Back/forward navigation works
+- Reload refreshes page
+- Can navigate to new URL from bar
+- Button states update correctly
+- URL updates on page navigation
+
+---
+
+### T033: Tab State Persistence (Clarification C) 🎯
+**Priority**: P1
+**Dependencies**: T032
+**Estimated Time**: 4 hours
+
+**Tasks**:
+1. Extend session state schema
+   ```typescript
+   interface SessionState {
+     activeWorkspaceId: string
+     tabs: {
+       itemId: string
+       url: string
+       scrollPosition: { x: number, y: number }
+       zoomLevel: number
+     }[]
+     activeTabIndex: number
+   }
+   ```
+2. Implement session saving
+   - Save on tab open/close
+   - Save on workspace switch
+   - Save on tab switch
+   - Save on app close
+   - Debounce saves (max 1/second)
+3. Implement tab restoration on startup
+   - Read session state
+   - For each tab:
+     - Call TabManager.openTab(itemId)
+     - Restore scrollPosition (BrowserView API)
+     - Restore zoomLevel
+   - Set activeTabIndex
+4. Handle restoration failures
+   - Item deleted: skip tab
+   - Item moved: still restore
+   - Log skipped tabs
+5. Write integration tests
+   - Open 3 tabs → close app → reopen → verify tabs restored
+
+**Acceptance Criteria**:
+- Tabs restore on startup with correct URLs
+- Active tab is correct after restore
+- Scroll position and zoom restored
+- Integration tests pass
+
+---
+
+### T034: Tab Limit Warning (Clarification C) 🚀
+**Priority**: P2
+**Dependencies**: T033
+**Estimated Time**: 2 hours
+
+**Tasks**:
+1. Implement soft limit check in TabManager
+   - Check tabs.length before opening
+   - If >= 20: emit 'tab:limit-warning' event
+   - Allow tab to open (no hard block)
+2. Create `src/renderer/components/Toast.tsx`
+   - Generic toast notification component
+   - Auto-dismiss after 5 seconds
+   - Close button
+3. Show warning in renderer
+   - Subscribe to 'tab:limit-warning' event
+   - Display toast: "20+ tabs open, performance may be impacted"
+   - Add yellow border to tab bar
+4. Log tab metrics
+   - Track peak tab count per session
+   - Log to analytics (optional)
+5. Write unit tests
+
+**Acceptance Criteria**:
+- Warning shown when 20th tab opens
+- Can still open more tabs
+- Warning dismisses automatically
+- Unit tests pass
+
+---
+
+### T035: Milestone 4 Validation (User Story 5) 🎯
+**Priority**: P0
+**Dependencies**: T027-T034
+**Estimated Time**: 3 hours
+
+**Validation (Spec User Story 5 Acceptance Criteria)**:
+- [ ] AS5.1: Can open 5 different items → 5 tabs appear
+- [ ] AS5.2: Back/forward/refresh buttons work
+- [ ] AS5.3: Closing 3 tabs → tabs close, items remain in workspace
+- [ ] AS5.4: Type new URL → page loads, new item created
+- [ ] AS5.5: Switching tabs → each retains state (scroll, etc.)
+
+**End-to-End Test**:
+1. Open workspace
+2. Open 5 web items (e.g., google.com, github.com, etc.)
+3. Verify 5 tabs in tab bar
+4. Navigate within a tab (click links)
+5. Use back button
+6. Switch to different tab
+7. Close 2 tabs
+8. Verify items still in workspace tree
+9. Enter new URL in address bar
+10. Verify page loads and new item created
+
+**Deliverable**: Functional web browsing with tabs (User Story 5 complete)
+
+---
+
+## Phase 5: Markdown Editor Integration (User Story 2)
+
+**Goal**: Markdown note creation, editing, autosave
+**Duration**: 3-4 days
+
+### T036: MarkText Renderer Component 🎯
+**Priority**: P0
+**Dependencies**: T035
+**Estimated Time**: 6 hours
+
+**Tasks**:
+1. Research MarkText integration options
+   - Option A: Integrate MarkText library directly
+   - Option B: Use alternative (Milkdown, Tiptap, etc.)
+   - Option C: Custom Markdown editor (CodeMirror + marked)
+   - **Recommendation**: Milkdown (better Electron support)
+2. Install chosen library
+   - `npm install @milkdown/core @milkdown/preset-commonmark @milkdown/react`
+3. Create `src/renderer/components/MarkdownEditor.tsx`
+   - Split view: editor (left) | preview (right)
+   - Use chosen Markdown library
+   - Resizable splitter between panes
+4. Implement editor initialization
+   - Load note content from IPC: `workspaceAPI.readNoteContent(itemId)`
+   - Initialize editor with content
+   - Render preview
+5. Implement onChange handler
+   - Capture editor content changes
+   - Trigger autosave (next task)
+6. Implement toolbar
+   - Bold, Italic, Strikethrough
+   - Headings (H1-H6)
+   - Lists, Links, Images
+   - Code blocks
+7. Style editor
+   - Syntax highlighting
+   - Line numbers (optional)
+   - Theme matching (light/dark)
+
+**Acceptance Criteria**:
+- Markdown editor renders correctly
+- Split view functional
+- Toolbar buttons work
+- Syntax highlighting visible
+- Theme matches app theme
+
+---
+
+### T037: Autosave Manager (Clarification D) 🎯
+**Priority**: P0
+**Dependencies**: T036
+**Estimated Time**: 4 hours
+
+**Tasks**:
+1. Create `src/core/workspace/autosave-manager.ts`
+   ```typescript
+   export class AutosaveManager {
+     private timers: Map<string, NodeJS.Timeout> = new Map()
+
+     scheduleSave(itemId: string, content: string): void
+     flushSave(itemId: string): Promise<void>
+     flushAll(): Promise<void>
+   }
+   ```
+2. Implement scheduleSave
+   - Clear existing timer for itemId
+   - Start new timer: 500ms debounce
+   - On timer complete: call ItemManager.writeNoteContent()
+   - Emit 'note:saved' event with timestamp
+3. Implement flushSave
+   - Cancel timer if active
+   - Save immediately
+   - Return Promise
+4. Implement flushAll
+   - Flush all pending saves
+   - Use Promise.all()
+5. Integrate with MarkdownEditor
+   - Call autosaveManager.scheduleSave() on onChange
+   - Call autosaveManager.flushSave() on tab close
+6. Create save indicator UI
+   - `src/renderer/components/SaveIndicator.tsx`
+   - Display "Saving..." while timer active
+   - Display "Saved at HH:MM:SS" after save
+   - Display "Save failed" on error with retry button
+7. Handle edge cases
+   - Tab closed before save: flush immediately
+   - App closing: flush all pending (T038)
+   - Write errors: retry once, then notify user
+8. Write unit tests
+
+**Acceptance Criteria**:
+- Content saves 500ms after typing stops
+- Save indicator shows correct state
+- Tab close flushes pending save
+- Write errors handled gracefully
+- Unit tests pass (debounce logic verified)
+
+---
+
+### T038: App Shutdown Save Flush 🎯
+**Priority**: P1
+**Dependencies**: T037
+**Estimated Time**: 2 hours
+
+**Tasks**:
+1. Add 'before-quit' handler in main process
+   ```typescript
+   app.on('before-quit', async (event) => {
+     event.preventDefault()
+     await autosaveManager.flushAll()
+     app.quit()
+   })
+   ```
+2. Implement timeout for flush
+   - Max wait: 3 seconds
+   - If timeout: log warning, allow quit
+3. Show progress indicator (optional)
+   - "Saving notes..." dialog
+   - Only if flush takes >1 second
+4. Write integration tests
+
+**Acceptance Criteria**:
+- All pending saves complete before app quits
+- Timeout prevents indefinite hang
+- No data loss on normal quit
+- Integration tests pass
+
+---
+
+### T039: Markdown Tab Integration 🎯
+**Priority**: P0
+**Dependencies**: T038
+**Estimated Time**: 3 hours
+
+**Tasks**:
+1. Update TabManager to handle markdown tabs
+   - When opening markdown item:
+     - Don't create BrowserView
+     - Set tab.type = 'markdown'
+     - Emit 'tab:opened' with markdown flag
+2. Update `src/renderer/components/TabArea.tsx`
+   - Render MarkdownEditor if activeTab.type === 'markdown'
+   - Render BrowserView container if activeTab.type === 'web'
+3. Handle tab switching
+   - Web → Markdown: hide BrowserView, show MarkdownEditor
+   - Markdown → Web: hide MarkdownEditor, show BrowserView
+   - Markdown → Markdown: load different note content
+4. Implement note loading
+   - On markdown tab switch: load note content via IPC
+   - Initialize MarkdownEditor with content
+5. Write integration tests
+
+**Acceptance Criteria**:
+- Can open markdown items as tabs
+- Editor displays note content
+- Switching between web/markdown tabs works
+- Multiple markdown tabs supported
+- Integration tests pass
+
+---
+
+### T040: Milestone 5 Validation (User Story 2) 🎯
+**Priority**: P0
+**Dependencies**: T036-T039
+**Estimated Time**: 2 hours
+
+**Validation (Spec User Story 2 Acceptance Criteria)**:
+- [ ] AS2.1: Creating markdown note → opens in editor tab
+- [ ] AS2.2: Typing content → live preview updates → autosaves
+- [ ] AS2.3: Notes and web items coexist in same folders
+- [ ] AS2.4: Clicking note in tree → opens with saved content
+- [ ] AS2.5: Rename/move notes → changes persist
+
+**End-to-End Test**:
+1. Create workspace
+2. Right-click folder → New Note
+3. Type "# Test Note" in editor
+4. Verify preview renders correctly
+5. Wait 1 second
+6. Verify "Saved at XX:XX:XX" appears
+7. Close tab
+8. Close app
+9. Reopen app
+10. Click note in tree
+11. Verify content preserved
+
+**Deliverable**: Functional Markdown editing (User Story 2 complete)
+
+---
+
+## Phase 6: AI Assistant Panel (User Story 3)
+
+**Goal**: Persistent AI panel with provider selection
+**Duration**: 2-3 days
+
+### T041: AI Provider Selector 🎯
+**Priority**: P0
+**Dependencies**: T040
+**Estimated Time**: 3 hours
+
+**Tasks**:
+1. Create `src/renderer/components/AIPanel.tsx`
+   - Dropdown selector at top
+   - BrowserView container below
+2. Create AI provider config
+   ```typescript
+   const AI_PROVIDERS = [
+     { id: 'chatgpt', name: 'ChatGPT', url: 'https://chat.openai.com' },
+     { id: 'claude', name: 'Claude', url: 'https://claude.ai' },
+     { id: 'gemini', name: 'Gemini', url: 'https://gemini.google.com' },
+     { id: 'custom', name: 'Custom URL', url: '' }
+   ]
+   ```
+3. Implement provider selector UI
+   - Dropdown component
+   - Show selected provider
+   - On change: emit IPC event
+4. Store selected provider
+   - Save to localStorage
+   - Restore on app start
+5. Handle custom URL
+   - Show text input if "Custom URL" selected
+   - Validate URL format
+6. Write component tests
+
+**Acceptance Criteria**:
+- Dropdown shows all providers
+- Selection persists across restarts
+- Custom URL input works
+- Component tests pass
+
+---
+
+### T042: AI BrowserView Management 🎯
+**Priority**: P0
+**Dependencies**: T041
+**Estimated Time**: 5 hours
+
+**Tasks**:
+1. Extend BrowserViewManager for AI panel
+   - `createAIView(providerId: string, url: string): BrowserView`
+   - Dedicated view (not pooled)
+   - Separate cache directory per provider
+2. Create AI view on startup
+   - Initialize with last selected provider
+   - Position in right panel area
+3. Implement provider switching
+   - Destroy current AI view
+   - Create new AI view with new provider URL
+   - Load provider URL
+4. Configure AI view settings
+   ```typescript
+   const aiView = new BrowserView({
+     webPreferences: {
+       nodeIntegration: false,
+       contextIsolation: true,
+       sandbox: true,
+       partition: `persist:ai-${providerId}`, // Separate session per provider
+     }
+   })
+   ```
+5. Calculate AI panel bounds
+   - Position in right panel
+   - Account for panel width (300px default)
+   - Full height minus top bar
+6. Handle view lifecycle
+   - Persist across workspace switches
+   - Destroy only on provider change
+   - Recreate on app restart
+7. Set up IPC handlers
+   - 'ai:switch-provider'
+   - 'ai:get-current-provider'
+8. Write unit tests
+
+**Acceptance Criteria**:
+- AI view loads provider URL
+- View positioned correctly
+- Provider switching works
+- Separate sessions per provider
+- Unit tests pass
+
+---
+
+### T043: AI Session Persistence 🚀
+**Priority**: P1
+**Dependencies**: T042
+**Estimated Time**: 2 hours
+
+**Tasks**:
+1. Configure session persistence
+   - Use `partition: 'persist:ai-${providerId}'` in webPreferences
+   - Electron automatically persists cookies
+2. Verify session persistence
+   - Login to ChatGPT
+   - Close app
+   - Reopen app
+   - Verify still logged in
+3. Test with all providers
+   - ChatGPT
+   - Claude
+   - Gemini
+4. Handle session expiration
+   - Detect 401/403 responses (via webRequest)
+   - Notify user (toast notification)
+   - Allow re-login without clearing cookies
+5. Write integration tests
+
+**Acceptance Criteria**:
+- Login sessions persist across restarts
+- Each provider has separate session
+- Session expiration handled gracefully
+- Integration tests pass
+
+---
+
+### T044: AI Panel UI Polish 🎯
+**Priority**: P2
+**Dependencies**: T043
+**Estimated Time**: 3 hours
+
+**Tasks**:
+1. Style AI panel
+   - Background color matching theme
+   - Border on left side
+   - Dropdown styling
+2. Implement resizable splitter
+   - Allow resizing AI panel width
+   - Minimum width: 200px
+   - Maximum width: 600px
+   - Persist width in localStorage
+3. Add loading state
+   - Show spinner while AI view loads
+   - Display "Loading ChatGPT..." message
+4. Handle load errors
+   - Display error message if provider unreachable
+   - Provide retry button
+   - Log error details
+5. Prevent navigation outside AI domain (optional security)
+   - Intercept navigation events
+   - If URL domain changes: block or warn
+6. Write UI tests
+
+**Acceptance Criteria**:
+- AI panel styling matches app theme
+- Resizable width with persistence
+- Loading states visible
+- Errors handled gracefully
+- UI tests pass
+
+---
+
+### T045: Milestone 6 Validation (User Story 3) 🎯
+**Priority**: P0
+**Dependencies**: T041-T044
+**Estimated Time**: 2 hours
+
+**Validation (Spec User Story 3 Acceptance Criteria)**:
+- [ ] AS3.1: Select ChatGPT → chat.openai.com loads and remains visible
+- [ ] AS3.2: Switch center tabs → AI panel remains visible, no reload
+- [ ] AS3.3: Login to AI provider → session persists across restarts
+- [ ] AS3.4: Change provider (ChatGPT → Claude) → new interface loads
+- [ ] AS3.5: Interact with AI → all features work (no data interception)
+
+**End-to-End Test**:
+1. Launch app
+2. Select ChatGPT from AI dropdown
+3. Verify chat.openai.com loads
+4. Login to ChatGPT (if not logged in)
+5. Open 3 web tabs in center
+6. Switch between tabs
+7. Verify AI panel remains visible
+8. Switch to Claude
+9. Verify claude.ai loads
+10. Close app
+11. Reopen app
+12. Verify Claude still loaded and logged in
+
+**Deliverable**: Functional AI assistant panel (User Story 3 complete)
+
+---
+
+## Phase 7: Advanced Features (User Stories 4, 6)
+
+**Goal**: Search, tags, drag-drop, multi-workspace, themes
+**Duration**: 1 week
+
+### T046: Search Functionality 🚀
+**Priority**: P1
+**Dependencies**: T045
+**Estimated Time**: 6 hours
+
+**Tasks**:
+1. Implement database search
+   - Extend Database class with searchItems method
+   - Query: `WHERE workspace_id = ? AND (title LIKE ? OR url LIKE ?)`
+2. Add full-text search (optional - FTS5)
+   - Create FTS virtual table
+   - Index title, url, markdown content
+   - Use FTS MATCH queries
+3. Create `src/renderer/components/SearchBar.tsx`
+   - Text input with search icon
+   - Dropdown for results
+   - Debounce input (300ms)
+4. Implement search in renderer
+   - On input change: call IPC 'workspace:search'
+   - Display results in dropdown
+   - Limit to 100 results
+5. Display search results
+   - Item icon, title, folder path
+   - Highlight matching text
+   - Click result: open item in tab
+6. Implement tree filtering (optional)
+   - Filter tree to show only matching items
+   - Expand parent folders
+   - Clear filter on search clear
+7. Write unit tests
+
+**Acceptance Criteria**:
+- Search finds items by title
+- Search finds web items by URL
+- Results display correctly
+- Clicking result opens item
+- Unit tests pass
+
+---
+
+### T047: Tagging System 🚀
+**Priority**: P2
+**Dependencies**: T046
+**Estimated Time**: 5 hours
+
+**Tasks**:
+1. Extend database schema
+   - Add `tags` column to items table (JSON array)
+   - Or create separate tags table (normalized)
+   - Add index on tags column
+2. Update Item type
+   ```typescript
+   interface Item {
+     // ...existing fields
+     tags: string[]
+   }
+   ```
+3. Implement tag CRUD in ItemManager
+   - `addTags(itemId: string, tags: string[]): Promise<void>`
+   - `removeTags(itemId: string, tags: string[]): Promise<void>`
+   - `getItemsByTag(workspaceId: string, tag: string): Promise<Item[]>`
+4. Create `src/renderer/components/TagEditor.tsx`
+   - Show existing tags as chips
+   - Input to add new tags
+   - Click tag chip: remove tag
+5. Integrate tags into UI
+   - Show tags on tree items (badges)
+   - Show tags in context menu
+   - Add "Add Tag" action
+6. Extend search to include tags
+   - Search by tag name
+   - Filter by multiple tags (AND/OR)
+7. Write unit tests
+
+**Acceptance Criteria**:
+- Can add tags to items
+- Tags persist and display correctly
+- Can search by tags
+- Tags visible in tree view
+- Unit tests pass
+
+---
+
+### T048: Drag & Drop Organization 🚀
+**Priority**: P1
+**Dependencies**: T047
+**Estimated Time**: 6 hours
+
+**Tasks**:
+1. Install drag-drop library (optional)
+   - react-dnd or @dnd-kit
+   - Or use native HTML5 drag-drop
+2. Make tree items draggable
+   - Add `draggable` prop to TreeNode
+   - Set drag data: itemId, sourceFolder
+   - Show drag preview (semi-transparent)
+3. Make folders drop targets
+   - Add drag event handlers to folder nodes
+   - `onDragEnter`, `onDragOver`, `onDragLeave`, `onDrop`
+4. Implement drop validation
+   - Prevent dropping item into itself
+   - Prevent circular references for folders
+   - Show error if invalid drop
+5. Implement move action
+   - On drop: call IPC 'item:move'
+   - Update tree UI optimistically
+   - Revert on error
+6. Add visual feedback
+   - Highlight drop target on dragOver
+   - Show drop not allowed cursor for invalid targets
+   - Animate item movement
+7. Handle folder drag-drop
+   - Allow moving folders into other folders
+   - Prevent circular references
+8. Write E2E tests
+
+**Acceptance Criteria**:
+- Can drag items between folders
+- Can drag folders into other folders
+- Invalid drops prevented
+- Visual feedback clear
+- E2E tests pass
+
+---
+
+### T049: Multi-Workspace Switching (User Story 6) 🚀
+**Priority**: P1
+**Dependencies**: T048
+**Estimated Time**: 4 hours
+
+**Tasks**:
+1. Update workspace selector UI
+   - Show all workspaces in dropdown
+   - Current workspace highlighted
+   - "Create New Workspace" option
+   - "Delete Workspace" option
+2. Implement workspace switching
+   - Call WorkspaceEngine.switchWorkspace()
+   - Save current workspace state
+   - Close all tabs
+   - Load new workspace tree
+   - Emit 'workspace:switched' event
+3. Implement workspace deletion
+   - Show confirmation dialog
+   - Display item count
+   - Call WorkspaceEngine.deleteWorkspace()
+   - Switch to another workspace or create new
+4. Ensure workspace isolation
+   - Each workspace has separate folder tree
+   - Items belong to one workspace only
+   - Tabs cleared on switch
+5. Write integration tests
+
+**Acceptance Criteria**:
+- Can switch between multiple workspaces
+- Each workspace isolated
+- Delete confirmation shown
+- Integration tests verify isolation
+
+---
+
+### T050: Theme System (Light/Dark) 🚀
+**Priority**: P2
+**Dependencies**: T049
+**Estimated Time**: 4 hours
+
+**Tasks**:
+1. Define CSS custom properties
+   - `variables.css` with theme tokens
+   - Background, text, border, accent colors
+2. Create light theme
+   - White backgrounds
+   - Dark text
+   - Light borders
+3. Create dark theme
+   - Dark backgrounds
+   - Light text
+   - Darker borders
+4. Implement theme switcher
+   - Toggle in View menu
+   - Store preference in localStorage
+   - Apply theme by adding class to root element
+5. Apply theme to all components
+   - Update component styles to use CSS variables
+   - Ensure contrast ratios meet accessibility standards
+6. Sync with system theme (optional)
+   - Detect `prefers-color-scheme`
+   - Auto-switch theme
+   - Allow manual override
+7. Write UI tests
+
+**Acceptance Criteria**:
+- Light theme looks good
+- Dark theme looks good
+- Toggle switches themes instantly
+- Preference persists
+- UI tests pass
+
+---
+
+### T051: Keyboard Shortcuts 🚀
+**Priority**: P2
+**Dependencies**: T050
+**Estimated Time**: 4 hours
+
+**Tasks**:
+1. Register global shortcuts in main process
+   - Ctrl/Cmd+T: New tab
+   - Ctrl/Cmd+W: Close tab
+   - Ctrl/Cmd+Tab: Next tab
+   - Ctrl/Cmd+Shift+Tab: Previous tab
+   - Ctrl/Cmd+1-9: Jump to tab N
+   - Ctrl/Cmd+F: Focus search
+   - Ctrl/Cmd+N: New note
+   - Ctrl/Cmd+Shift+N: New folder
+2. Implement web tab shortcuts
+   - Ctrl/Cmd+L: Focus address bar
+   - Ctrl/Cmd+R: Reload
+   - Alt+←: Back
+   - Alt+→: Forward
+3. Implement markdown shortcuts
+   - Ctrl/Cmd+B: Bold
+   - Ctrl/Cmd+I: Italic
+   - Ctrl/Cmd+K: Insert link
+4. Create keyboard shortcut help dialog
+   - List all shortcuts
+   - Grouped by context
+   - Accessible via Help menu or Ctrl+?
+5. Write E2E tests
+
+**Acceptance Criteria**:
+- All shortcuts work
+- Shortcuts context-aware (web vs markdown tab)
+- Help dialog shows all shortcuts
+- E2E tests pass
+
+---
+
+### T052: Milestone 7 Validation (User Stories 4, 6) 🚀
+**Priority**: P0
+**Dependencies**: T046-T051
+**Estimated Time**: 3 hours
+
+**Validation (User Story 4)**:
+- [ ] AS4.1: Can add tags "important" and "chapter-3" to item
+- [ ] AS4.2: Search "chapter-3" → only tagged items shown
+- [ ] AS4.3: Drag item from folder A to folder B → item moves
+- [ ] AS4.4: Rename web item → custom name persisted
+- [ ] AS4.5: Full-text search works and is fast
+
+**Validation (User Story 6)**:
+- [ ] AS6.1: Create "Work" and "Personal" workspaces
+- [ ] AS6.2: Switch from "Work" to "Personal" → correct items shown
+- [ ] AS6.3: Delete workspace → confirmation → data removed
+- [ ] AS6.4: Multiple workspaces maintain independent state
+- [ ] AS6.5: Last workspace restored on app restart
+
+**End-to-End Test**:
+1. Create 3 workspaces
+2. Add items to each
+3. Add tags to some items
+4. Search by tag
+5. Drag items between folders
+6. Switch workspaces
+7. Verify isolation
+8. Delete one workspace
+9. Verify deletion
+10. Close and reopen app
+11. Verify last workspace restored
+
+**Deliverable**: Full-featured workspace management (User Stories 4, 6 complete)
+
+---
+
+## Phase 8: Performance, Security, Cross-Platform
+
+**Goal**: Optimize performance, harden security, package for all platforms
+**Duration**: 1 week
+
+### T053: Performance Optimization - Launch Time 🚀
+**Priority**: P1
+**Dependencies**: T052
+**Estimated Time**: 4 hours
+
+**Tasks**:
+1. Profile app launch
+   - Measure time to window visible
+   - Identify bottlenecks
+2. Optimize database initialization
+   - Lazy load non-critical data
+   - Use indexes for first queries
+3. Optimize React rendering
+   - Lazy load components
+   - Use React.memo for expensive components
+   - Virtualize long lists (workspace tree)
+4. Optimize main process startup
+   - Defer non-critical initialization
+   - Load BrowserViews on demand
+5. Measure improvements
+   - Target: <2 seconds cold start
+   - Verify on all platforms
+6. Write performance tests
+
+**Acceptance Criteria**:
+- Cold start <2 seconds
+- Warm start <1 second
+- Performance tests pass on all platforms
+
+---
+
+### T054: Performance Optimization - Memory Management 🚀
+**Priority**: P1
+**Dependencies**: T053
+**Estimated Time**: 4 hours
+
+**Tasks**:
+1. Implement BrowserView pooling optimization
+   - Pool size: 20 views
+   - LRU eviction strategy
+   - Destroy views beyond pool size
+2. Implement tab suspension (optional)
+   - Suspend inactive tabs after 30 minutes
+   - Destroy BrowserView, keep tab metadata
+   - Recreate on tab activation
+3. Monitor memory usage
+   - Log memory stats periodically
+   - Detect memory leaks
+   - Alert if usage exceeds thresholds
+4. Optimize database queries
+   - Add missing indexes
+   - Use prepared statements
+   - Limit result sets
+5. Measure improvements
+   - Baseline: <500MB with 10 tabs
+   - Target: <1.5GB with 20 tabs
+6. Write memory leak tests
+
+**Acceptance Criteria**:
+- Memory usage within targets
+- No memory leaks detected
+- Tab suspension works (if implemented)
+- Memory tests pass
+
+---
+
+### T055: Security Hardening 🚀
+**Priority**: P0
+**Dependencies**: T054
+**Estimated Time**: 6 hours
+
+**Tasks**:
+1. Enforce Content Security Policy
+   - Define CSP for renderer
+   - Block inline scripts (if possible)
+   - Allow only HTTPS resources
+2. Review all webPreferences
+   - Ensure `nodeIntegration: false`
+   - Ensure `contextIsolation: true`
+   - Ensure `sandbox: true`
+3. Validate IPC inputs
+   - Check types and ranges
+   - Sanitize strings
+   - Prevent injection attacks
+4. Implement SQLite encryption (optional - SQLCipher)
+   - Install SQLCipher
+   - Generate encryption key
+   - Apply encryption to database
+5. Secure note files
+   - Store in userData directory
+   - Set appropriate file permissions
+6. Run security audit
+   - `npm audit`
+   - Fix high/critical vulnerabilities
+7. Run penetration testing (basic)
+   - Test XSS in web items
+   - Test SQL injection (should be prevented by prepared statements)
+8. Write security tests
+
+**Acceptance Criteria**:
+- All webPreferences secure
+- IPC inputs validated
+- npm audit shows no high/critical issues
+- Security tests pass
+
+---
+
+### T056: Error Recovery & Crash Handling (Clarification C) 🚀
+**Priority**: P1
+**Dependencies**: T055
+**Estimated Time**: 5 hours
+
+**Tasks**:
+1. Implement crash detection
+   - Set "running" flag on startup
+   - Clear flag on clean exit
+   - Detect flag on next launch = crash
+2. Validate workspace integrity on startup
+   - Check foreign key constraints
+   - Check for orphaned items
+   - Auto-repair if possible
+3. Restore session after crash
+   - Load session state
+   - Restore workspace
+   - Restore tabs (as per T033)
+   - Notify user: "Session restored after crash"
+4. Implement backup restoration
+   - If session state corrupted: try .backup
+   - If database corrupted: try .backup
+   - Notify user of recovery actions
+5. Handle partial restoration
+   - If some tabs can't restore: skip them
+   - Log skipped tabs
+   - Show warning: "Some tabs could not be restored"
+6. Write integration tests
+
+**Acceptance Criteria**:
+- Crash detected on restart
+- Session restored successfully
+- Integrity validation runs
+- Backup restoration works
+- Integration tests pass
+
+---
+
+### T057: Windows Build & Packaging 🚀
+**Priority**: P0
+**Dependencies**: T056
+**Estimated Time**: 6 hours
+
+**Tasks**:
+1. Configure electron-builder for Windows
+   ```json
+   {
+     "win": {
+       "target": ["nsis", "portable"],
+       "icon": "build/icon.ico"
+     }
+   }
+   ```
+2. Create app icon
+   - Design 256x256 icon
+   - Convert to .ico format
+3. Configure NSIS installer
+   - Per-user installation
+   - Desktop shortcut
+   - Start menu entry
+   - Uninstaller
+4. Build on Windows
+   - `npm run electron:build`
+   - Test NSIS installer
+   - Test portable .exe
+5. Test on Windows 10 and Windows 11
+   - Install and uninstall
+   - Verify all features work
+   - Check for Windows-specific issues
+6. Sign binaries (optional - requires certificate)
+   - Obtain code signing certificate
+   - Configure electron-builder signing
+7. Document Windows build process
+
+**Acceptance Criteria**:
+- NSIS installer installs app correctly
+- Portable .exe works without installation
+- App functions identically on Windows
+- Build documented in quickstart.md
+
+---
+
+### T058: macOS Build & Packaging 🚀
+**Priority**: P0
+**Dependencies**: T056
+**Estimated Time**: 6 hours
+
+**Tasks**:
+1. Configure electron-builder for macOS
+   ```json
+   {
+     "mac": {
+       "target": ["dmg", "zip"],
+       "icon": "build/icon.icns",
+       "category": "public.app-category.productivity",
+       "hardenedRuntime": true
+     }
+   }
+   ```
+2. Create app icon
+   - Design 1024x1024 icon
+   - Convert to .icns format
+3. Build on macOS
+   - `npm run electron:build`
+   - Test DMG installer
+   - Test .app directly
+4. Test on macOS 12 (Monterey) and macOS 13 (Ventura)
+   - Install from DMG
+   - Verify all features work
+   - Check for macOS-specific issues
+5. Sign and notarize (optional - requires Apple Developer account)
+   - Obtain Apple Developer ID
+   - Sign app bundle
+   - Notarize with Apple
+   - Staple notarization ticket
+6. Document macOS build process
+
+**Acceptance Criteria**:
+- DMG creates and mounts correctly
+- App installs via drag-drop
+- App functions identically on macOS
+- Build documented in quickstart.md
+
+---
+
+### T059: Linux Build & Packaging 🚀
+**Priority**: P0
+**Dependencies**: T056
+**Estimated Time**: 5 hours
+
+**Tasks**:
+1. Configure electron-builder for Linux
+   ```json
+   {
+     "linux": {
+       "target": ["AppImage", "deb"],
+       "icon": "build/icon.png",
+       "category": "Utility"
+     }
+   }
+   ```
+2. Create app icon
+   - Design 512x512 icon
+   - Save as .png
+3. Build on Linux
+   - `npm run electron:build`
+   - Test AppImage
+   - Test .deb package
+4. Test on Ubuntu 20.04 and Ubuntu 22.04
+   - Install .deb package
+   - Run AppImage directly
+   - Verify all features work
+   - Check for Linux-specific issues
+5. Document Linux build process
+6. Optional: Create snap package
+
+**Acceptance Criteria**:
+- AppImage runs without installation
+- .deb package installs correctly
+- App functions identically on Linux
+- Build documented in quickstart.md
+
+---
+
+### T060: Cross-Platform Testing 🚀
+**Priority**: P0
+**Dependencies**: T057, T058, T059
+**Estimated Time**: 6 hours
+
+**Tasks**:
+1. Set up test matrix
+   - Windows 10, Windows 11
+   - macOS 12, macOS 13
+   - Ubuntu 20.04, Ubuntu 22.04
+2. Run E2E tests on all platforms
+   - Use GitHub Actions or local VMs
+   - Verify all E2E tests pass
+3. Manual testing on each platform
+   - Install app
+   - Create workspace
+   - Add items
+   - Open tabs
+   - Test markdown editor
+   - Test AI panel
+   - Test search, tags, drag-drop
+   - Verify persistence
+4. Document platform-specific quirks
+   - Known issues per platform
+   - Workarounds
+   - Performance differences
+5. Fix critical platform-specific bugs
+6. Verify performance targets met on all platforms
+
+**Acceptance Criteria**:
+- E2E tests pass on all platforms
+- Manual testing successful on all platforms
+- No critical platform-specific bugs
+- Performance targets met on all platforms
+
+---
+
+### T061: Milestone 8 Validation (Performance, Security, Packaging) 🚀
+**Priority**: P0
+**Dependencies**: T053-T060
+**Estimated Time**: 3 hours
+
+**Validation Checklist**:
+- [ ] Launch time <2 seconds on all platforms
+- [ ] Memory usage within targets
+- [ ] Security audit clean
+- [ ] Crash recovery works
+- [ ] Windows build functional
+- [ ] macOS build functional
+- [ ] Linux build functional
+- [ ] All E2E tests pass on all platforms
+
+**Deliverable**: Production-ready builds for all platforms
+
+---
+
+## Phase 9: Documentation & Release
+
+**Goal**: User/developer documentation, release preparation
+**Duration**: 3-4 days
+
+### T062: User Documentation 🚀
+**Priority**: P1
+**Dependencies**: T061
+**Estimated Time**: 6 hours
+
+**Tasks**:
+1. Write user manual (Markdown)
+   - Getting Started
+   - Creating Workspaces
+   - Managing Folders and Items
+   - Using Tabs (Web and Markdown)
+   - AI Assistant Panel
+   - Search and Tags
+   - Keyboard Shortcuts
+   - Troubleshooting
+2. Create FAQ
+   - Common questions
+   - Known issues
+   - Workarounds
+3. Create video tutorials (optional)
+   - Quick start (5 min)
+   - Advanced features (15 min)
+4. Generate PDF from docs
+5. Include docs in app (Help menu)
+
+**Acceptance Criteria**:
+- User manual complete and clear
+- FAQ addresses common questions
+- Documentation accessible from app
+
+---
+
+### T063: Developer Documentation 🚀
+**Priority**: P2
+**Dependencies**: T061
+**Estimated Time**: 5 hours
+
+**Tasks**:
+1. Write architecture overview
+   - System diagram
+   - Module descriptions
+   - Data flow
+2. Document internal APIs
+   - WorkspaceEngine API
+   - ItemManager API
+   - BrowserViewManager API
+   - Database API
+3. Write development setup guide
+   - Prerequisites
+   - Building from source
+   - Running tests
+   - Debugging tips
+4. Document code style
+   - TypeScript conventions
+   - Naming standards
+   - Comment guidelines
+5. Write contributing guide
+   - How to submit PRs
+   - Code review process
+   - Testing requirements
+
+**Acceptance Criteria**:
+- Architecture documented
+- APIs documented with examples
+- Setup guide allows new contributors to build project
+- Contributing guide clear
+
+---
+
+### T064: Release Preparation 🚀
+**Priority**: P0
+**Dependencies**: T062, T063
+**Estimated Time**: 4 hours
+
+**Tasks**:
+1. Write CHANGELOG.md
+   - Version 1.0.0
+   - All features listed
+   - Known issues
+2. Write release notes
+   - Highlights
+   - Installation instructions per platform
+   - Upgrade instructions (if applicable)
+3. Create release checklist
+   - All tests pass
+   - All docs complete
+   - All builds created
+   - Binaries signed (if applicable)
+4. Prepare distribution
+   - Upload builds to releases page
+   - Create download page
+   - Set up auto-update (optional - Electron updater)
+5. Prepare announcement
+   - Blog post
+   - Social media posts
+   - Email to beta testers (if any)
+
+**Acceptance Criteria**:
+- CHANGELOG complete
+- Release notes clear and accurate
+- All release artifacts ready
+- Distribution plan in place
+
+---
+
+### T065: Final Validation & Release 🚀
+**Priority**: P0
+**Dependencies**: T064
+**Estimated Time**: 4 hours
+
+**Final Checklist**:
+- [ ] All 6 user stories validated
+- [ ] All success criteria met
+- [ ] All tests passing
+- [ ] All documentation complete
+- [ ] All platforms built and tested
+- [ ] Security audit clean
+- [ ] Performance targets met
+- [ ] No critical bugs
+- [ ] Release artifacts created
+
+**Release Actions**:
+1. Create Git tag: v1.0.0
+2. Push tag to GitHub
+3. Create GitHub release with notes
+4. Upload build artifacts
+5. Publish announcement
+6. Monitor for issues
+
+**Deliverable**: Workspace Navigator V1.0 released! 🎉
+
+---
+
+## Task Summary
+
+### By Phase
+
+| Phase | Tasks | Duration | Deliverable |
+|-------|-------|----------|-------------|
+| 1: Project Setup | T001-T008 | 3-5 days | Clean Electron-only codebase |
+| 2: Core Infrastructure | T009-T017 | 1 week | Functional app shell with data layer |
+| 3: Workspace Management | T018-T026 | 1 week | User Story 1 complete |
+| 4: BrowserView & Tabs | T027-T035 | 1 week | User Story 5 complete |
+| 5: Markdown Editor | T036-T040 | 3-4 days | User Story 2 complete |
+| 6: AI Panel | T041-T045 | 2-3 days | User Story 3 complete |
+| 7: Advanced Features | T046-T052 | 1 week | User Stories 4, 6 complete |
+| 8: Performance, Security | T053-T061 | 1 week | Production-ready builds |
+| 9: Documentation | T062-T065 | 3-4 days | V1.0 released |
+
+**Total Duration**: 8-10 weeks (with 2-3 developers working in parallel)
+
+### By Priority
+
+- **🎯 MVP (P0-P1)**: T001-T045 (≈6 weeks) - Core functionality
+- **🚀 V1 (P2)**: T046-T065 (≈3 weeks) - Polish and release
+
+### Parallel Execution Opportunities
+
+**Phase 1**:
+- T005 (Testing), T006 (CI/CD), T007 (Docs) can run in parallel
+
+**Phase 2**:
+- T015 (State Management) and T016 (Error Handling) can run in parallel with T013-T014
+
+**Phase 3**:
+- T023 (UI) can start once T021 is complete, parallel with T024-T025
+
+**Phase 4**:
+- T031-T032 (UI) can run parallel with T033-T034 once T030 is done
+
+**Phase 8**:
+- T057, T058, T059 (Platform builds) can run in parallel
+
+### Dependencies Graph
+
+```
+T001 → T002 → T003 → T004, T005, T006, T007
+         ↓
+       T008 (Milestone 1)
+         ↓
+    T009 → T010 → T011 → T012 → T013 → T014 → T015, T016
+                                            ↓
+                                         T017 (Milestone 2)
+                                            ↓
+                          T018 → T019 → T020 → T021 → T022 → T023 → T024, T025
+                                                                        ↓
+                                                                   T026 (Milestone 3)
+                                                                        ↓
+                                       T027 → T028 → T029 → T030 → T031 → T032 → T033, T034
+                                                                                      ↓
+                                                                                T035 (Milestone 4)
+                                                                                      ↓
+                                                                   T036 → T037 → T038 → T039
+                                                                                      ↓
+                                                                                T040 (Milestone 5)
+                                                                                      ↓
+                                                                   T041 → T042 → T043 → T044
+                                                                                      ↓
+                                                                                T045 (Milestone 6)
+                                                                                      ↓
+                                          T046 → T047 → T048 → T049 → T050 → T051
+                                                                                      ↓
+                                                                                T052 (Milestone 7)
+                                                                                      ↓
+                                                T053 → T054 → T055 → T056 → [T057, T058, T059] → T060
+                                                                                                    ↓
+                                                                                              T061 (Milestone 8)
+                                                                                                    ↓
+                                                                                        [T062, T063] → T064 → T065
+```
+
+---
+
+## Edge Cases & Clarifications Addressed
+
+**Clarification B** (Duplication Detection):
+- T030: Implements same URL + same day + same folder check
+- T029: Integrates with navigation flow
+
+**Clarification C** (Crash Recovery):
+- T033: Tab state persistence
+- T056: Crash detection and session restoration
+- T038: Pending save flush on app shutdown
+
+**Clarification D** (Autosave):
+- T037: 500ms debounce autosave
+- T037: Save indicator UI showing "Saved at HH:MM:SS"
+
+**Edge Cases**:
+- Tab limit warning: T034 (soft limit of 20)
+- Failed page loads: T029 (error handling)
+- Folder deletion: T019 (confirmation with options)
+- Offline mode: Handled by browser (pages won't load, AI unavailable)
+- Duplicate URLs: T030 (focus existing tab)
+- Unsaved notes on close: T037, T038 (autosave flushes)
+- Corrupted workspace: T056 (integrity validation and repair)
+- Partial session restore: T056 (skip invalid tabs, notify user)
+
+---
+
+## Success Criteria Mapping
+
+All success criteria from spec.md addressed:
+
+- **SC-001**: Workspace creation + persistence → T018-T025, T056
+- **SC-002**: Item opening <200ms → T027-T028 (BrowserView is fast)
+- **SC-003**: Launch <2s → T053 (performance optimization)
+- **SC-004**: 500+ items no lag → T046 (indexed search), T053 (optimization)
+- **SC-005**: User onboarding → T062 (user documentation)
+- **SC-006**: Note persistence without manual save → T037-T038 (autosave)
+- **SC-007**: AI provider switching <3s → T042 (BrowserView loads fast)
+- **SC-008**: Cross-platform parity → T057-T060 (all platforms tested)
+- **SC-009**: Replace browser + notes + AI → All phases (integrated experience)
+- **SC-010**: Zero data loss → T009-T010 (database), T037-T038 (autosave), T056 (recovery)
+
+---
+
+**END OF TASKS**
+
+This comprehensive task list implements Workspace Navigator V1 using Electron BrowserView architecture. All CEF references removed. Ready for implementation! 🚀

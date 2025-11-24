@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CEF WebView Test</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 12px;
+            background: #e3f2fd;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #1976D2;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .log {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry {
+            padding: 4px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+        .success { color: #4CAF50; }
+        .error { color: #f44336; }
+        .info { color: #2196F3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌐 CEF WebView Integration Test</h1>
+
+        <div class="status" id="status">
+            Checking CEF status...
+        </div>
+
+        <div class="buttons">
+            <button id="btnCheck">Check CEF Status</button>
+            <button id="btnCreate">Create Browser (example.com)</button>
+            <button id="btnNavigate" disabled>Navigate to Google</button>
+            <button id="btnBack" disabled>Go Back</button>
+            <button id="btnForward" disabled>Go Forward</button>
+            <button id="btnReload" disabled>Reload</button>
+            <button id="btnClose" disabled>Close Browser</button>
+        </div>
+
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        let currentBrowserId = null;
+        const log = document.getElementById('log');
+        const status = document.getElementById('status');
+
+        function addLog(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        async function checkCEF() {
+            try {
+                const initialized = await window.electronAPI.cef.isInitialized();
+                if (initialized) {
+                    status.textContent = '✓ CEF is initialized and ready';
+                    status.style.background = '#c8e6c9';
+                    addLog('CEF is initialized', 'success');
+                } else {
+                    status.textContent = '✗ CEF is not initialized';
+                    status.style.background = '#ffcdd2';
+                    addLog('CEF is not initialized', 'error');
+                }
+                return initialized;
+            } catch (err) {
+                status.textContent = '✗ Error checking CEF: ' + err.message;
+                status.style.background = '#ffcdd2';
+                addLog('Error: ' + err.message, 'error');
+                return false;
+            }
+        }
+
+        async function createBrowser() {
+            try {
+                addLog('Creating browser for example.com...');
+                const browserId = await window.electronAPI.cef.createBrowser('https://example.com');
+                currentBrowserId = browserId;
+                addLog(`Browser created with ID: ${browserId}`, 'success');
+
+                // Enable navigation buttons
+                document.getElementById('btnNavigate').disabled = false;
+                document.getElementById('btnBack').disabled = false;
+                document.getElementById('btnForward').disabled = false;
+                document.getElementById('btnReload').disabled = false;
+                document.getElementById('btnClose').disabled = false;
+
+                // Start monitoring browser state
+                monitorBrowser(browserId);
+            } catch (err) {
+                addLog('Error creating browser: ' + err.message, 'error');
+            }
+        }
+
+        async function navigate() {
+            if (!currentBrowserId) return;
+            try {
+                addLog('Navigating to google.com...');
+                await window.electronAPI.cef.loadURL(currentBrowserId, 'https://www.google.com');
+                addLog('Navigation started', 'success');
+            } catch (err) {
+                addLog('Error navigating: ' + err.message, 'error');
+            }
+        }
+
+        async function goBack() {
+            if (!currentBrowserId) return;
+            try {
+                await window.electronAPI.cef.goBack(currentBrowserId);
+                addLog('Going back', 'info');
+            } catch (err) {
+                addLog('Error going back: ' + err.message, 'error');
+            }
+        }
+
+        async function goForward() {
+            if (!currentBrowserId) return;
+            try {
+                await window.electronAPI.cef.goForward(currentBrowserId);
+                addLog('Going forward', 'info');
+            } catch (err) {
+                addLog('Error going forward: ' + err.message, 'error');
+            }
+        }
+
+        async function reload() {
+            if (!currentBrowserId) return;
+            try {
+                await window.electronAPI.cef.reload(currentBrowserId);
+                addLog('Reloading', 'info');
+            } catch (err) {
+                addLog('Error reloading: ' + err.message, 'error');
+            }
+        }
+
+        async function closeBrowser() {
+            if (!currentBrowserId) return;
+            try {
+                await window.electronAPI.cef.closeBrowser(currentBrowserId);
+                addLog(`Browser ${currentBrowserId} closed`, 'success');
+                currentBrowserId = null;
+
+                // Disable navigation buttons
+                document.getElementById('btnNavigate').disabled = true;
+                document.getElementById('btnBack').disabled = true;
+                document.getElementById('btnForward').disabled = true;
+                document.getElementById('btnReload').disabled = true;
+                document.getElementById('btnClose').disabled = true;
+            } catch (err) {
+                addLog('Error closing browser: ' + err.message, 'error');
+            }
+        }
+
+        async function monitorBrowser(browserId) {
+            const interval = setInterval(async () => {
+                if (currentBrowserId !== browserId) {
+                    clearInterval(interval);
+                    return;
+                }
+
+                try {
+                    const [url, title, isLoading] = await Promise.all([
+                        window.electronAPI.cef.getURL(browserId),
+                        window.electronAPI.cef.getTitle(browserId),
+                        window.electronAPI.cef.isLoading(browserId)
+                    ]);
+
+                    if (url || title) {
+                        addLog(`Browser state: ${isLoading ? 'Loading' : 'Ready'} - ${title || 'No title'} (${url || 'No URL'})`, 'info');
+                    }
+                } catch (err) {
+                    addLog('Error monitoring: ' + err.message, 'error');
+                    clearInterval(interval);
+                }
+            }, 2000);
+        }
+
+        // Event listeners
+        document.getElementById('btnCheck').addEventListener('click', checkCEF);
+        document.getElementById('btnCreate').addEventListener('click', createBrowser);
+        document.getElementById('btnNavigate').addEventListener('click', navigate);
+        document.getElementById('btnBack').addEventListener('click', goBack);
+        document.getElementById('btnForward').addEventListener('click', goForward);
+        document.getElementById('btnReload').addEventListener('click', reload);
+        document.getElementById('btnClose').addEventListener('click', closeBrowser);
+
+        // Auto-check on load
+        window.addEventListener('load', checkCEF);
+    </script>
+</body>
+</html>

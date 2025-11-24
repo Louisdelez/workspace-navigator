@@ -205,7 +205,7 @@ As a user, I want to create multiple separate workspaces (e.g., "Work", "Persona
 - Users are familiar with basic IDE or file explorer concepts (folders, hierarchies)
 - Web pages will be rendered as-is without reader modes or simplified views in V1
 - Markdown editor will use MarkText component with its standard feature set
-- Browser engine will use CEF (Chromium Embedded Framework) with standard web compatibility
+- Browser engine will use Electron's built-in Chromium (BrowserView API) for web rendering
 - Users will primarily use keyboard and mouse (touch/stylus support out of scope for V1)
 - Application will store data in user's local application data directory following OS conventions
 - Users accept that workspace data is local-only with no cloud backup in V1

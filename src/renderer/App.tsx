@@ -3,28 +3,31 @@
  * Three-column layout: Workspace Panel | Tabs Area | AI Panel
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { WorkspacePanel } from './components/WorkspacePanel';
 import { TabsContainer } from './components/TabsContainer';
 import { AIPanel } from './components/AIPanel';
+import { ShortcutsHelp } from './components/ShortcutsHelp';
 import type { Workspace, Item } from '../types/entities';
+import { useKeyboardShortcuts, type ShortcutHandler } from './hooks/useKeyboardShortcuts';
 import './styles/index.css';
 
 export function App() {
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(null);
-  const [openTabs, setOpenTabs] = useState<Item[]>([]);
-  const [activeTabIndex, setActiveTabIndex] = useState(0);
-  const [aiProvider, setAIProvider] = useState<'chatgpt' | 'claude' | 'gemini' | 'none'>('none');
+  const [aiProvider, setAIProvider] = useState<'chatgpt' | 'claude' | 'gemini' | 'custom' | 'none'>('none');
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState<boolean>(false);
 
   // Load session on mount
   useEffect(() => {
     loadSession();
   }, []);
 
-  // Save session whenever state changes
+  // Save session when AI provider changes (tabs are managed by TabManager)
   useEffect(() => {
-    saveSession();
-  }, [activeWorkspace, openTabs, activeTabIndex, aiProvider]);
+    if (activeWorkspace) {
+      saveSession();
+    }
+  }, [aiProvider]);
 
   async function loadSession() {
     try {
@@ -35,19 +38,14 @@ export function App() {
         const workspace = await window.electronAPI.workspace.get(session.activeWorkspaceId);
         if (workspace) {
           setActiveWorkspace(workspace);
+          // Set workspace context for tab manager
+          await window.electronAPI.tab.setWorkspace(workspace.id);
         }
       }
 
-      // Restore open tabs
-      const tabs: Item[] = [];
-      for (const itemId of session.openTabs) {
-        const item = await window.electronAPI.item.get(itemId);
-        if (item) {
-          tabs.push(item);
-        }
-      }
-      setOpenTabs(tabs);
-      setActiveTabIndex(session.activeTabIndex);
+      // Restore open tabs (handled by TabManager now)
+      // The TabManager will restore tabs from session
+
       setAIProvider(session.aiProvider);
     } catch (error) {
       console.error('Failed to restore session:', error);
@@ -56,9 +54,14 @@ export function App() {
 
   async function saveSession() {
     try {
+      // Get current tabs from TabManager
+      const tabs = await window.electronAPI.tab.getAll();
+      const activeTab = await window.electronAPI.tab.getActive();
+      const activeTabIndex = activeTab ? tabs.findIndex(t => t.id === activeTab.id) : 0;
+
       await window.electronAPI.session.save(
         activeWorkspace?.id || null,
-        openTabs.map(tab => tab.id),
+        tabs.map(tab => tab.itemId),
         activeTabIndex,
         aiProvider
       );
@@ -67,47 +70,124 @@ export function App() {
     }
   }
 
-  function handleWorkspaceChange(workspace: Workspace | null) {
+  async function handleWorkspaceChange(workspace: Workspace | null) {
+    // T049: Close all tabs when switching workspaces for isolation
+    try {
+      const tabs = await window.electronAPI.tab.getAll();
+      for (const tab of tabs) {
+        await window.electronAPI.tab.close(tab.id);
+      }
+    } catch (error) {
+      console.error('Failed to close tabs:', error);
+    }
+
     setActiveWorkspace(workspace);
-    // Clear tabs when switching workspaces
-    setOpenTabs([]);
-    setActiveTabIndex(0);
+
+    // Set workspace context for tab manager
+    await window.electronAPI.tab.setWorkspace(workspace?.id || null);
+
+    // Save session with new workspace
+    await saveSession();
   }
 
-  function handleOpenItem(item: Item) {
-    // Check if item is already open
-    const existingIndex = openTabs.findIndex(tab => tab.id === item.id);
-    if (existingIndex >= 0) {
-      setActiveTabIndex(existingIndex);
-      return;
-    }
-
-    // Add new tab
-    setOpenTabs([...openTabs, item]);
-    setActiveTabIndex(openTabs.length);
-  }
-
-  function handleCloseTab(index: number) {
-    const newTabs = openTabs.filter((_, i) => i !== index);
-    setOpenTabs(newTabs);
-
-    // Adjust active tab index
-    if (activeTabIndex >= newTabs.length) {
-      setActiveTabIndex(Math.max(0, newTabs.length - 1));
+  async function handleOpenItem(item: Item) {
+    try {
+      // Use TabManager to open the item
+      await window.electronAPI.tab.open(item.id);
+    } catch (error) {
+      console.error('Failed to open item:', error);
+      alert('Failed to open item');
     }
   }
 
-  function handleUpdateItem(itemId: string, updates: Partial<Item>) {
-    // Update in open tabs
-    setOpenTabs(tabs =>
-      tabs.map(tab =>
-        tab.id === itemId ? { ...tab, ...updates } : tab
-      )
-    );
-
-    // Update in database
-    window.electronAPI.item.update(itemId, updates);
+  async function handleUpdateItem(itemId: string, updates: Partial<Item>) {
+    try {
+      // Update in database
+      await window.electronAPI.item.update(itemId, updates);
+      // TabManager will receive the update through its event handlers
+    } catch (error) {
+      console.error('Failed to update item:', error);
+    }
   }
+
+  // T051: Keyboard Shortcuts
+  const shortcuts: ShortcutHandler[] = [
+    // Close active tab (Cmd/Ctrl+W)
+    {
+      key: 'w',
+      ctrlOrCmd: true,
+      handler: async () => {
+        try {
+          const activeTab = await window.electronAPI.tab.getActive();
+          if (activeTab) {
+            await window.electronAPI.tab.close(activeTab.id);
+          }
+        } catch (error) {
+          console.error('Failed to close tab:', error);
+        }
+      },
+      description: 'Close active tab',
+      category: 'tabs'
+    },
+    // Reload active tab (Cmd/Ctrl+R)
+    {
+      key: 'r',
+      ctrlOrCmd: true,
+      handler: async () => {
+        try {
+          await window.electronAPI.tab.reload();
+        } catch (error) {
+          console.error('Failed to reload tab:', error);
+        }
+      },
+      description: 'Reload active tab',
+      category: 'navigation'
+    },
+    // Go back (Alt+Left)
+    {
+      key: 'ArrowLeft',
+      alt: true,
+      handler: async () => {
+        try {
+          await window.electronAPI.tab.goBack();
+        } catch (error) {
+          console.error('Failed to go back:', error);
+        }
+      },
+      description: 'Go back',
+      category: 'navigation'
+    },
+    // Go forward (Alt+Right)
+    {
+      key: 'ArrowRight',
+      alt: true,
+      handler: async () => {
+        try {
+          await window.electronAPI.tab.goForward();
+        } catch (error) {
+          console.error('Failed to go forward:', error);
+        }
+      },
+      description: 'Go forward',
+      category: 'navigation'
+    },
+    // Show shortcuts help (F1)
+    {
+      key: 'F1',
+      handler: () => setShowShortcutsHelp(true),
+      description: 'Show keyboard shortcuts',
+      category: 'general'
+    },
+    // Close shortcuts help (Escape)
+    {
+      key: 'Escape',
+      handler: () => setShowShortcutsHelp(false),
+      description: 'Close dialogs',
+      category: 'general'
+    }
+  ];
+
+  useKeyboardShortcuts(shortcuts);
 
   return (
     <div className="app">
@@ -118,10 +198,6 @@ export function App() {
       />
 
       <TabsContainer
-        tabs={openTabs}
-        activeIndex={activeTabIndex}
-        onTabChange={setActiveTabIndex}
-        onCloseTab={handleCloseTab}
         onUpdateItem={handleUpdateItem}
       />
 
@@ -129,6 +205,10 @@ export function App() {
         provider={aiProvider}
         onProviderChange={setAIProvider}
       />
+
+      {showShortcutsHelp && (
+        <ShortcutsHelp onClose={() => setShowShortcutsHelp(false)} />
+      )}
     </div>
   );
 }

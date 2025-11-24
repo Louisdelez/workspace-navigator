@@ -1,27 +1,25 @@
-# Workspace Navigator - Proof of Concept
+# Workspace Navigator
 
 A cross-platform desktop application combining web browser, Markdown editor, and AI assistant in an IDE-style workspace.
 
-## 🎯 POC Overview
+## 🎯 Overview
 
-This is a simplified proof-of-concept implementation that demonstrates the core architecture and features of Workspace Navigator without the complexity of native CEF integration.
+Workspace Navigator uses Electron BrowserView API to provide native Chromium rendering for web content, React for the UI, and SQLite for local data persistence. The application organizes web pages and Markdown notes in hierarchical workspaces with automatic session restoration.
 
-### What's Included ✅
-
-#### Core Features Implemented
+### ✨ Features
 
 1. **Workspace Management**
-   - Create/select multiple workspaces
+   - Create and switch between multiple workspaces
    - Automatic workspace persistence
    - Session restore on application restart
 
 2. **Hierarchical Organization**
    - Folder creation and nesting
-   - Automatic date-based folders (DD.MM.YYYY format)
-   - Drag-and-drop support (UI ready)
+   - Automatic date-based folders (YYYY-MM-DD format)
+   - Drag-and-drop support for reorganization
 
-3. **Item Types**
-   - **Web Items**: Save and open web pages (using iframe)
+3. **Content Types**
+   - **Web Items**: Save and browse web pages with Electron BrowserView
    - **Note Items**: Markdown editing with live autosave (500ms debounce)
 
 4. **Three-Column Layout**
@@ -30,14 +28,14 @@ This is a simplified proof-of-concept implementation that demonstrates the core 
    - Right: AI assistant panel (ChatGPT/Claude/Gemini)
 
 5. **Data Persistence**
-   - SQLite database with full ACID guarantees
-   - Automatic schema initialization
-   - Session state persistence (open tabs, active workspace, window state)
+   - SQLite database (better-sqlite3) with ACID guarantees
+   - Automatic schema initialization and migrations
+   - Session state persistence (tabs, workspace, window state)
 
-6. **Key Business Logic**
-   - FR-002a: Duplicate URL detection (same URL, same day, same folder)
-   - FR-005: Auto date folder creation
-   - FR-015: Autosave with 500ms debounce + timestamp indicator
+6. **Business Logic**
+   - Duplicate URL detection (same URL, same day, same folder)
+   - Auto date folder creation
+   - Autosave with 500ms debounce + timestamp indicator
 
 #### Architecture
 
@@ -60,82 +58,65 @@ This is a simplified proof-of-concept implementation that demonstrates the core 
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### What's Simplified (vs. Full Spec) ⚠️
+### 🚧 Implementation Status
 
-1. **No Native CEF Integration**
-   - Uses Electron's BrowserView/iframe instead of native CEF
-   - No WebView pooling (full spec requires C++ implementation)
-   - No process-per-site-instance isolation
+**Phase 1: Project Setup (COMPLETE)** ✅
+- CEF removed in favor of Electron BrowserView
+- Build system configured
+- Testing infrastructure set up
+- Documentation complete
 
-2. **Simplified Web Browsing**
-   - iframes instead of full browser engine
-   - Limited to iframe-friendly sites
-   - No browser controls (back/forward/refresh)
+**Phase 2-9: In Progress**
+- Core infrastructure implementation
+- BrowserView integration
+- Workspace features
+- Advanced features (search, tags, themes)
 
-3. **Basic Markdown Editor**
-   - Plain textarea (not WYSIWYG like MarkText)
-   - No preview mode
-   - Autosave works as specified
+## 🚀 Quick Start
 
-4. **No Advanced Features**
-   - No search functionality
-   - No tags
-   - No drag-and-drop (UI ready, handlers needed)
-   - No theme switcher (CSS variables ready)
-
-## 🚀 Getting Started
+For detailed setup instructions, see [Development Quickstart Guide](specs/001-workspace-navigator/quickstart.md).
 
 ### Prerequisites
 
 - Node.js 20.x LTS
 - npm 10.x+
+- Git 2.40+
 
 ### Installation
 
 ```bash
+# Clone repository
+git clone <repository-url>
+cd Navigateur
+
 # Install dependencies
 npm install
 
-# This will install:
-# - Electron, React, TypeScript
-# - better-sqlite3 (SQLite database)
-# - Vite (build tool)
-# - All development tools
+# Rebuild native modules (if needed)
+npx electron-rebuild
 ```
 
-### Running the Application
+### Running
 
-#### Development Mode (Recommended)
+#### Development Mode
 
 ```bash
-# Start Vite dev server + Electron
 npm run electron:dev
-
-# This will:
-# 1. Start Vite dev server on http://localhost:5173
-# 2. Launch Electron with DevTools open
-# 3. Enable hot reload for instant updates
 ```
+
+This starts:
+1. Vite dev server (http://localhost:5173)
+2. TypeScript compilation
+3. Electron with DevTools
 
 #### Production Build
 
 ```bash
-# Build TypeScript + React
-npm run build
-
-# Package for your platform
-npm run electron:build
-
-# Output: release/ directory with installer
+npm run build            # Build application
+npm run electron:build   # Package for distribution
 ```
 
-### First Run
-
-1. Launch the application
-2. Click **"+"** to create your first workspace (e.g., "Personal")
-3. Click **"New Note"** to create a Markdown note
-4. Start typing - autosave will save after 500ms of inactivity
-5. Try selecting an AI provider (ChatGPT/Claude/Gemini) in the right panel
+Output: `release/` directory with platform-specific installers
 
 ## 📁 Project Structure
 
@@ -143,8 +124,14 @@ npm run electron:build
 workspace-navigator/
 ├── src/
 │   ├── main/                    # Electron main process
-│   │   ├── index.ts             # Entry point + IPC handlers
-│   │   └── preload.ts           # Context bridge API
+│   │   ├── index.ts             # Entry point
+│   │   ├── browser-view-manager.ts  # BrowserView lifecycle
+│   │   ├── window-manager.ts        # Window state
+│   │   ├── ipc-handlers.ts          # IPC handlers
+│   │   └── menu.ts                  # Application menus
+│   │
+│   ├── preload/                 # Preload scripts
+│   │   └── index.ts             # Electron API bridge
 │   │
 │   ├── renderer/                # React UI
 │   │   ├── App.tsx              # Root component
@@ -187,11 +174,18 @@ workspace-navigator/
 ## 🧪 Testing
 
 ```bash
-# Run unit tests (when implemented)
-npm test
+# Unit tests (Vitest)
+npm test                  # Watch mode
+npm test -- --run         # Run once
+npm run test:ui           # Visual UI
+npm run test:coverage     # With coverage
 
-# Run with coverage
-npm run test:coverage
+# E2E tests (Playwright)
+npm run test:e2e
+
+# Code quality
+npm run lint              # Check linting
+npm run format            # Auto-format
 ```
 
 ## 🔧 Development
@@ -311,29 +305,57 @@ document.documentElement.setAttribute('data-theme', 'dark');
 }
 ```
 
-## 🚧 Known Limitations
+## 🗺️ Architecture
 
-1. **Web browsing**: iframes don't work for all sites (CORS restrictions)
-2. **No browser controls**: Can't navigate back/forward in web items
-3. **Basic Markdown**: Just a textarea, no preview or syntax highlighting
-4. **No search**: Full-text search implemented in database but not exposed in UI
-5. **No drag-and-drop**: Tree structure supports it, but handlers not implemented
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Electron Main Process                     │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │ BrowserViewManager  →  WorkspaceEngine  →  Database    │ │
+│  │ (BrowserView pool)     (Business Logic)    (SQLite)    │ │
+│  └────────────────────────────────────────────────────────┘ │
+│                           ↕ IPC                              │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │              Renderer Process (React)                   │ │
+│  │  ┌──────────┐  ┌──────────────┐  ┌──────────────────┐ │ │
+│  │  │Workspace │  │ Tabs         │  │ AI Panel         │ │ │
+│  │  │Panel     │  │ (BrowserView/│  │ (AI provider     │ │ │
+│  │  │(Tree)    │  │  Markdown)   │  │  iframe)         │ │ │
+│  │  └──────────┘  └──────────────┘  └──────────────────┘ │ │
+│  └────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
 
-## 🔮 Next Steps to Full Implementation
+### Key Technologies
 
-To evolve this POC into the full specification:
+- **Electron 30+**: BrowserView API for native Chromium rendering
+- **React 18**: UI framework with hooks
+- **TypeScript 5.3**: Type-safe development
+- **SQLite (better-sqlite3)**: Local database
+- **Vite**: Dev server and bundler
+- **Vitest + Playwright**: Testing stack
 
-1. **Replace iframes with native CEF integration** (see `specs/001-workspace-navigator/plan.md`)
-   - Implement C++ CEF bridge
-   - Add WebView pooling
-   - Enable process-per-site-instance
+## 📚 Documentation
 
-2. **Integrate MarkText** for WYSIWYG Markdown editing
-3. **Add search functionality** (database layer ready, UI needed)
-4. **Implement drag-and-drop** for reorganization
-5. **Add tags UI** (database schema ready)
-6. **Implement browser controls** for web items
-7. **Add comprehensive test suite** (Vitest + Playwright)
+- **[Quickstart Guide](specs/001-workspace-navigator/quickstart.md)** - Development setup
+- **[Specification](specs/001-workspace-navigator/spec.md)** - Feature requirements
+- **[Implementation Plan](specs/001-workspace-navigator/plan.md)** - Architecture details
+- **[Tasks](specs/001-workspace-navigator/tasks.md)** - Development roadmap
+- **[Data Model](specs/001-workspace-navigator/data-model.md)** - Database schema
+
+## 🛣️ Roadmap
+
+See [tasks.md](specs/001-workspace-navigator/tasks.md) for detailed implementation phases:
+
+1. **Phase 1**: Project Setup (COMPLETE) ✅
+2. **Phase 2**: Core Infrastructure
+3. **Phase 3**: Workspace Management
+4. **Phase 4**: BrowserView Integration & Tabs
+5. **Phase 5**: Markdown Editor
+6. **Phase 6**: AI Assistant Panel
+7. **Phase 7**: Advanced Features
+8. **Phase 8**: Performance & Security
+9. **Phase 9**: Documentation & Release
 
 ## 📚 Documentation
 
@@ -346,28 +368,39 @@ To evolve this POC into the full specification:
 
 ## 🤝 Contributing
 
-This is a proof-of-concept. Contributions welcome!
+Contributions welcome! Please follow these guidelines:
 
-1. Check `specs/001-workspace-navigator/tasks.md` for implementation tasks
-2. Follow the established architecture patterns
-3. Run `npm run lint` and `npm run format` before committing
-4. Add tests for new features
+1. **Read the docs**: Start with [quickstart.md](specs/001-workspace-navigator/quickstart.md)
+2. **Pick a task**: Check [tasks.md](specs/001-workspace-navigator/tasks.md) for open tasks
+3. **Follow conventions**:
+   - TypeScript strict mode
+   - ESLint + Prettier for code style
+   - Write tests for new features
+   - Document public APIs with TSDoc
+4. **Test before committing**:
+   ```bash
+   npm run lint
+   npm test -- --run
+   npm run build
+   ```
+5. **Create PR**: Follow existing patterns and architecture
 
 ## 📝 License
 
 MIT
 
-## 🙏 Acknowledgments
+## 🙏 Built With
 
-Built with:
-- Electron 28
-- React 18
-- TypeScript 5.3
-- better-sqlite3
-- Vite
+- [Electron 30+](https://www.electronjs.org/) - Cross-platform desktop framework
+- [React 18](https://react.dev/) - UI framework
+- [TypeScript 5.3](https://www.typescriptlang.org/) - Type-safe JavaScript
+- [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) - Synchronous SQLite
+- [Vite](https://vite.dev/) - Build tool and dev server
+- [Vitest](https://vitest.dev/) - Unit testing
+- [Playwright](https://playwright.dev/) - E2E testing
 
 ---
 
-**POC Status**: ✅ Core features implemented and functional
+**Status**: Phase 1 Complete - Ready for feature implementation
 
-For questions or issues, please refer to the specification documents in `specs/001-workspace-navigator/`.
+For questions, issues, or detailed documentation, see `specs/001-workspace-navigator/`.

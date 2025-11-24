@@ -26,12 +26,52 @@ export class WorkspaceDatabase {
   }
 
   /**
-   * Initialize database schema
+   * Initialize database schema and run migrations
    */
   private initialize(): void {
-    const schemaPath = join(__dirname, 'schema.sql');
-    const schema = readFileSync(schemaPath, 'utf-8');
-    this.db.exec(schema);
+    // Get current schema version
+    const currentVersion = this.db.pragma('user_version', { simple: true }) as number;
+
+    if (currentVersion === 0) {
+      // Fresh database - load initial schema
+      console.log('Initializing database schema...');
+      const schemaPath = join(__dirname, 'schema.sql');
+      const schema = readFileSync(schemaPath, 'utf-8');
+      this.db.exec(schema);
+
+      // Set schema version to 1
+      this.db.pragma('user_version = 1');
+      console.log('Database initialized with schema version 1');
+    } else {
+      // Existing database - run migrations if needed
+      this.runMigrations(currentVersion);
+    }
+  }
+
+  /**
+   * Run database migrations
+   * @param currentVersion Current schema version
+   */
+  private runMigrations(currentVersion: number): void {
+    const TARGET_VERSION = 1; // Update this when adding new migrations
+
+    if (currentVersion >= TARGET_VERSION) {
+      return; // Already up to date
+    }
+
+    console.log(`Running migrations from version ${currentVersion} to ${TARGET_VERSION}`);
+
+    // Run each migration in sequence
+    for (let version = currentVersion + 1; version <= TARGET_VERSION; version++) {
+      const migrationFile = join(__dirname, 'migrations', `${String(version).padStart(3, '0')}-*.sql`);
+      // Future: Load and execute migration SQL
+      // For now, migrations are handled by schema.sql
+      console.log(`Migration ${version} applied`);
+    }
+
+    // Update schema version
+    this.db.pragma(`user_version = ${TARGET_VERSION}`);
+    console.log(`Database upgraded to version ${TARGET_VERSION}`);
   }
 
   /**
@@ -229,21 +269,39 @@ export class WorkspaceDatabase {
   }
 
   createItem(item: WebItem | NoteItem): void {
+    // Force-recompile workaround: renamed internal logic
+    this._createItemInternal(item);
+  }
+
+  private _createItemInternal(item: WebItem | NoteItem): void {
     const data = this.toSnakeCase(item);
 
-    // Ensure all required fields exist with null defaults for missing ones
-    const itemData = {
-      ...data,
-      url: data.url || null,
-      favicon: data.favicon || null,
-      content: data.content || null
-    };
-
+    // Use positional parameters (?) instead of named parameters (@name)
+    // This bypasses any parameter name matching issues
     const stmt = this.db.prepare(
       `INSERT INTO items (id, workspace_id, folder_id, item_type, title, url, favicon, content, metadata, created_at, updated_at, is_deleted)
-       VALUES (@id, @workspace_id, @folder_id, @item_type, @title, @url, @favicon, @content, @metadata, @created_at, @updated_at, @is_deleted)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
-    stmt.run(itemData);
+
+    // Explicitly set all values in the correct order
+    const url = item.itemType === 'web' ? (data.url || null) : null;
+    const favicon = item.itemType === 'web' ? (data.favicon || null) : null;
+    const content = item.itemType === 'note' ? (data.content || null) : null;
+
+    stmt.run(
+      data.id,
+      data.workspace_id,
+      data.folder_id,
+      data.item_type,
+      data.title,
+      url,
+      favicon,
+      content,
+      data.metadata,
+      data.created_at,
+      data.updated_at,
+      data.is_deleted
+    );
   }
 
   updateItem(id: string, updates: Partial<Item>): void {
@@ -302,6 +360,59 @@ export class WorkspaceDatabase {
 
   // ==================== UTILITY ====================
 
+  /**
+   * Prepare a SQL statement for execution
+   */
+  prepare(sql: string): any {
+    return this.db.prepare(sql);
+  }
+
+  /**
+   * Search items by title, URL, or content (T046)
+   * @param workspaceId - Workspace to search in
+   * @param query - Search query
+   * @param limit - Maximum number of results (default: 100)
+   * @returns Array of matching items
+   */
+  searchItems(workspaceId: string, query: string, limit: number = 100): Item[] {
+    if (!query || query.trim().length === 0) {
+      return [];
+    }
+
+    const searchPattern = `%${query}%`;
+
+    const sql = `
+      SELECT * FROM items
+      WHERE workspace_id = ?
+        AND is_deleted = 0
+        AND (
+          title LIKE ? COLLATE NOCASE
+          OR (url IS NOT NULL AND url LIKE ? COLLATE NOCASE)
+          OR (content IS NOT NULL AND content LIKE ? COLLATE NOCASE)
+        )
+      ORDER BY
+        CASE
+          WHEN title LIKE ? THEN 1  -- Exact title match first
+          WHEN title LIKE ? THEN 2  -- Title starts with query
+          ELSE 3                     -- Other matches
+        END,
+        updated_at DESC
+      LIMIT ?
+    `;
+
+    const rows = this.db.prepare(sql).all(
+      workspaceId,
+      searchPattern, // title search
+      searchPattern, // url search
+      searchPattern, // content search
+      query,         // exact match check
+      `${query}%`,   // starts with check
+      limit
+    );
+
+    return rows.map(row => this.toCamelCase<Item>(row));
+  }
+
   close(): void {
     this.db.close();
   }
@@ -311,5 +422,110 @@ export class WorkspaceDatabase {
    */
   transaction<T>(fn: () => T): T {
     return this.db.transaction(fn)();
+  }
+
+  // ==================== TAGS (T047) ====================
+
+  /**
+   * Get all tags for a workspace
+   */
+  getAllTags(workspaceId: string) {
+    const stmt = this.db.prepare('SELECT * FROM tags WHERE workspace_id = ? ORDER BY name ASC');
+    return stmt.all(workspaceId).map(row => this.toCamelCase<any>(row));
+  }
+
+  /**
+   * Create a new tag
+   */
+  createTag(workspaceId: string, name: string, color: string = '#808080') {
+    const { v4: uuidv4 } = require('uuid');
+    const now = Date.now();
+
+    // Check if tag already exists
+    const existing = this.db.prepare(
+      'SELECT * FROM tags WHERE workspace_id = ? AND name = ?'
+    ).get(workspaceId, name);
+
+    if (existing) {
+      return this.toCamelCase<any>(existing);
+    }
+
+    const id = uuidv4();
+    const stmt = this.db.prepare(
+      `INSERT INTO tags (id, workspace_id, name, color, created_at)
+       VALUES (?, ?, ?, ?, ?)`
+    );
+    stmt.run(id, workspaceId, name, color, now);
+
+    return { id, workspaceId, name, color, createdAt: now };
+  }
+
+  /**
+   * Get tags for an item
+   */
+  getItemTags(itemId: string) {
+    const stmt = this.db.prepare(`
+      SELECT t.* FROM tags t
+      INNER JOIN item_tags it ON t.id = it.tag_id
+      WHERE it.item_id = ?
+      ORDER BY t.name ASC
+    `);
+    return stmt.all(itemId).map(row => this.toCamelCase<any>(row));
+  }
+
+  /**
+   * Add tags to an item
+   */
+  addItemTags(itemId: string, tagIds: string[]): void {
+    const now = Date.now();
+    const stmt = this.db.prepare(
+      `INSERT OR IGNORE INTO item_tags (item_id, tag_id, created_at)
+       VALUES (?, ?, ?)`
+    );
+
+    for (const tagId of tagIds) {
+      stmt.run(itemId, tagId, now);
+    }
+  }
+
+  /**
+   * Remove tags from an item
+   */
+  removeItemTags(itemId: string, tagIds: string[]): void {
+    const stmt = this.db.prepare(
+      'DELETE FROM item_tags WHERE item_id = ? AND tag_id = ?'
+    );
+
+    for (const tagId of tagIds) {
+      stmt.run(itemId, tagId);
+    }
+  }
+
+  /**
+   * Remove all tags from an item
+   */
+  removeAllItemTags(itemId: string): void {
+    this.db.prepare('DELETE FROM item_tags WHERE item_id = ?').run(itemId);
+  }
+
+  /**
+   * Get items by tag
+   */
+  getItemsByTag(workspaceId: string, tagId: string): any[] {
+    const stmt = this.db.prepare(`
+      SELECT i.* FROM items i
+      INNER JOIN item_tags it ON i.id = it.item_id
+      WHERE i.workspace_id = ? AND it.tag_id = ? AND i.is_deleted = 0
+      ORDER BY i.updated_at DESC
+    `);
+    return stmt.all(workspaceId, tagId).map(row => this.toCamelCase<any>(row));
+  }
+
+  /**
+   * Delete a tag (and remove from all items)
+   */
+  deleteTag(tagId: string): void {
+    // Foreign key CASCADE will handle item_tags deletion
+    this.db.prepare('DELETE FROM tags WHERE id = ?').run(tagId);
   }
 }

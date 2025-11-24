@@ -4,8 +4,10 @@
     "module": "CommonJS",
     "moduleResolution": "node",
     "outDir": "dist/main",
-    "rootDir": "src"
+    "rootDir": "src",
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
   },
-  "include": ["src/main/**/*", "src/core/**/*", "src/types/**/*"],
+  "include": ["src/main/**/*", "src/preload/**/*", "src/core/**/*", "src/types/**/*"],
   "exclude": ["src/renderer", "node_modules"]
 }

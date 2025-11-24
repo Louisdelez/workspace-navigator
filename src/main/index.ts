@@ -7,102 +7,72 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import { join } from 'path';
 import { WorkspaceDatabase } from '../core/storage/database';
 import { WorkspaceEngine } from '../core/workspace/workspace-engine';
+import { AutosaveManager } from '../core/workspace/autosave-manager';
+import { WindowManager } from './window-manager';
+import { SessionManager } from './session-manager';
+import { BrowserViewManager } from './browser-view-manager';
+import { TabManager } from './tab-manager';
+import { logger } from '../core/logging/logger';
+import { initializeErrorHandler, handleDatabaseError } from '../core/logging/error-handler';
 
-let mainWindow: BrowserWindow | null = null;
+// Initialize error handler first
+initializeErrorHandler();
+
 let db: WorkspaceDatabase;
 let engine: WorkspaceEngine;
+let autosaveManager: AutosaveManager;
+let windowManager: WindowManager;
+let sessionManager: SessionManager;
+let browserViewManager: BrowserViewManager;
+let tabManager: TabManager;
 
 // Database path
 const DB_PATH = join(app.getPath('userData'), 'workspace.db');
 
 /**
- * Create main application window
- */
-function createWindow() {
-  // Restore window state from session
-  const sessionState = engine.restoreSession();
-  const windowState = sessionState.windowState || {
-    width: 1400,
-    height: 900,
-    x: undefined,
-    y: undefined,
-    isMaximized: false
-  };
-
-  mainWindow = new BrowserWindow({
-    width: windowState.width,
-    height: windowState.height,
-    x: windowState.x,
-    y: windowState.y,
-    webPreferences: {
-      preload: join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: false  // Disabled for development
-    },
-    show: false
-  });
-
-  // Load URL based on environment
-  const isDev = !app.isPackaged;
-
-  if (isDev) {
-    // In development, use Vite dev server
-    const devUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173';
-    mainWindow.loadURL(devUrl);
-    mainWindow.webContents.openDevTools();
-  } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'));
-  }
-
-  // Show window when ready
-  mainWindow.once('ready-to-show', () => {
-    if (windowState.isMaximized) {
-      mainWindow?.maximize();
-    }
-    mainWindow?.show();
-  });
-
-  // Save window state on resize/move
-  mainWindow.on('resize', saveWindowState);
-  mainWindow.on('move', saveWindowState);
-  mainWindow.on('maximize', saveWindowState);
-  mainWindow.on('unmaximize', saveWindowState);
-
-  // Save session before closing
-  mainWindow.on('close', () => {
-    saveWindowState();
-  });
-
-  mainWindow.on('closed', () => {
-    mainWindow = null;
-  });
-}
-
-/**
- * Save current window state to database
- */
-function saveWindowState() {
-  if (!mainWindow) return;
-
-  const bounds = mainWindow.getBounds();
-  const windowState = {
-    width: bounds.width,
-    height: bounds.height,
-    x: bounds.x,
-    y: bounds.y,
-    isMaximized: mainWindow.isMaximized()
-  };
-
-  engine.saveWindowState(windowState);
-}
-
-/**
  * Initialize database and workspace engine
  */
 function initializeDatabase() {
-  db = new WorkspaceDatabase(DB_PATH);
-  engine = new WorkspaceEngine(db);
+  try {
+    logger.info('Initializing database', { path: DB_PATH });
+    db = new WorkspaceDatabase(DB_PATH);
+    engine = new WorkspaceEngine(db);
+    autosaveManager = new AutosaveManager(engine);
+    windowManager = new WindowManager(engine);
+    sessionManager = new SessionManager(engine);
+    logger.info('Database initialized successfully');
+  } catch (error) {
+    handleDatabaseError(error as Error, 'initialization', false);
+    throw error; // Re-throw to prevent app from continuing
+  }
+}
+
+/**
+ * Initialize tab manager after window is created
+ */
+function initializeTabManager(mainWindow: BrowserWindow) {
+  try {
+    logger.info('Initializing TabManager');
+    browserViewManager = new BrowserViewManager(mainWindow);
+    tabManager = new TabManager(browserViewManager, engine, db);
+
+    // Forward tab events to renderer
+    tabManager.on('tab-event', (event) => {
+      mainWindow.webContents.send('tab:event', event);
+    });
+
+    // Handle window resize
+    mainWindow.on('resize', () => {
+      if (tabManager) {
+        tabManager.updateContentBounds();
+      }
+    });
+
+    logger.info('TabManager initialized successfully');
+  } catch (error) {
+    logger.error('Failed to initialize TabManager', error as Error);
+    throw error;
+  }
 }
 
 /**
@@ -128,6 +98,39 @@ function setupIpcHandlers() {
 
   ipcMain.handle('workspace:delete', (_, id: string) => {
     engine.deleteWorkspace(id);
+  });
+
+  ipcMain.handle('workspace:search', (_, workspaceId: string, query: string) => {
+    return engine.searchItems(workspaceId, query, 100);
+  });
+
+  // Tag operations (T047)
+  ipcMain.handle('tag:getAll', (_, workspaceId: string) => {
+    return engine.getAllTags(workspaceId);
+  });
+
+  ipcMain.handle('tag:create', (_, workspaceId: string, name: string, color?: string) => {
+    return engine.createTag(workspaceId, name, color);
+  });
+
+  ipcMain.handle('tag:getForItem', (_, itemId: string) => {
+    return engine.getItemTags(itemId);
+  });
+
+  ipcMain.handle('tag:addToItem', (_, itemId: string, tagIds: string[]) => {
+    engine.addItemTags(itemId, tagIds);
+  });
+
+  ipcMain.handle('tag:removeFromItem', (_, itemId: string, tagIds: string[]) => {
+    engine.removeItemTags(itemId, tagIds);
+  });
+
+  ipcMain.handle('tag:getItems', (_, workspaceId: string, tagId: string) => {
+    return engine.getItemsByTag(workspaceId, tagId);
+  });
+
+  ipcMain.handle('tag:delete', (_, tagId: string) => {
+    engine.deleteTag(tagId);
   });
 
   // Folder operations
@@ -178,47 +181,292 @@ function setupIpcHandlers() {
 
   // Session operations
   ipcMain.handle('session:save', (_, activeWorkspaceId: string | null, openTabs: string[], activeTabIndex: number, aiProvider: string) => {
-    engine.saveSession(activeWorkspaceId, openTabs, activeTabIndex, aiProvider as any);
+    sessionManager.saveSession({
+      activeWorkspaceId,
+      openTabs,
+      activeTabIndex,
+      aiProvider: aiProvider as 'chatgpt' | 'claude' | 'gemini' | 'none'
+    });
   });
 
   ipcMain.handle('session:restore', () => {
-    return engine.restoreSession();
+    return sessionManager.restoreSession();
+  });
+
+  // Tab operations (T028-T032)
+  ipcMain.handle('tab:setWorkspace', (_, workspaceId: string | null) => {
+    if (!tabManager) throw new Error('TabManager not initialized');
+    tabManager.setWorkspace(workspaceId);
+  });
+
+  ipcMain.handle('tab:setContextFolder', (_, folderId: string | null) => {
+    if (!tabManager) throw new Error('TabManager not initialized');
+    tabManager.setContextFolder(folderId);
+  });
+
+  ipcMain.handle('tab:open', async (_, itemId: string) => {
+    if (!tabManager) throw new Error('TabManager not initialized');
+    return await tabManager.openTab(itemId);
+  });
+
+  ipcMain.handle('tab:close', (_, tabId: string) => {
+    if (!tabManager) throw new Error('TabManager not initialized');
+    tabManager.closeTab(tabId);
+  });
+
+  ipcMain.handle('tab:switch', (_, tabId: string) => {
+    if (!tabManager) throw new Error('TabManager not initialized');
+    tabManager.switchTab(tabId);
+  });
+
+  ipcMain.handle('tab:getAll', () => {
+    if (!tabManager) throw new Error('TabManager not initialized');
+    return tabManager.getAllTabs();
+  });
+
+  ipcMain.handle('tab:getActive', () => {
+    if (!tabManager) throw new Error('TabManager not initialized');
+    return tabManager.getActiveTab();
+  });
+
+  // Navigation operations
+  ipcMain.handle('tab:navigate', async (_, url: string) => {
+    if (!tabManager) throw new Error('TabManager not initialized');
+    await tabManager.navigate(url);
+  });
+
+  ipcMain.handle('tab:goBack', () => {
+    if (!tabManager) throw new Error('TabManager not initialized');
+    tabManager.goBack();
+  });
+
+  ipcMain.handle('tab:goForward', () => {
+    if (!tabManager) throw new Error('TabManager not initialized');
+    tabManager.goForward();
+  });
+
+  ipcMain.handle('tab:reload', () => {
+    if (!tabManager) throw new Error('TabManager not initialized');
+    tabManager.reload();
+  });
+
+  ipcMain.handle('tab:canGoBack', () => {
+    if (!tabManager) throw new Error('TabManager not initialized');
+    return tabManager.canGoBack();
+  });
+
+  ipcMain.handle('tab:canGoForward', () => {
+    if (!tabManager) throw new Error('TabManager not initialized');
+    return tabManager.canGoForward();
+  });
+
+  // Autosave operations (T037-T038)
+  ipcMain.handle('autosave:schedule', (_, itemId: string, content: string) => {
+    if (!autosaveManager) throw new Error('AutosaveManager not initialized');
+    autosaveManager.scheduleSave(itemId, content);
+  });
+
+  ipcMain.handle('autosave:flush', async (_, itemId: string) => {
+    if (!autosaveManager) throw new Error('AutosaveManager not initialized');
+    await autosaveManager.flushSave(itemId);
+  });
+
+  ipcMain.handle('autosave:getPendingCount', () => {
+    if (!autosaveManager) throw new Error('AutosaveManager not initialized');
+    return autosaveManager.getPendingCount();
+  });
+
+  // AI Panel operations (T042-T043)
+  ipcMain.handle('ai:switchProvider', (_, providerId: string, url: string) => {
+    if (!tabManager) throw new Error('TabManager not initialized');
+    const browserViewManager = (tabManager as any).browserViewManager;
+    if (!browserViewManager) throw new Error('BrowserViewManager not available');
+
+    // Handle 'none' provider (destroy AI view)
+    if (providerId === 'none' || !url) {
+      browserViewManager.destroyAIView();
+      return;
+    }
+
+    browserViewManager.switchAIProvider(providerId, url);
+  });
+
+  ipcMain.handle('ai:getCurrentProvider', () => {
+    if (!tabManager) throw new Error('TabManager not initialized');
+    const browserViewManager = (tabManager as any).browserViewManager;
+    if (!browserViewManager) throw new Error('BrowserViewManager not available');
+
+    return browserViewManager.getCurrentAIProvider();
   });
 }
 
+/**
+ * Restore tabs from session
+ */
+async function restoreTabs() {
+  try {
+    logger.info('Restoring tabs from session');
+
+    // Get session state
+    const session = sessionManager.restoreSession();
+
+    if (!session.activeWorkspaceId) {
+      logger.debug('No active workspace in session, skipping tab restoration');
+      return;
+    }
+
+    // Set workspace context
+    if (tabManager) {
+      tabManager.setWorkspace(session.activeWorkspaceId);
+    }
+
+    // Restore tabs
+    let restoredCount = 0;
+    let skippedCount = 0;
+
+    for (const itemId of session.openTabs) {
+      try {
+        // Check if item still exists
+        const item = engine.getItem(itemId);
+        if (!item) {
+          logger.warn(`Skipping deleted item ${itemId} during tab restoration`);
+          skippedCount++;
+          continue;
+        }
+
+        // Open tab
+        if (tabManager) {
+          await tabManager.openTab(itemId);
+          restoredCount++;
+        }
+      } catch (error) {
+        logger.error(`Failed to restore tab for item ${itemId}`, error as Error);
+        skippedCount++;
+      }
+    }
+
+    logger.info(`Tab restoration complete: ${restoredCount} restored, ${skippedCount} skipped`);
+  } catch (error) {
+    logger.error('Failed to restore tabs from session', error as Error);
+  }
+}
+
 // Application lifecycle
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  logger.info('Application ready, starting initialization');
+
   initializeDatabase();
   setupIpcHandlers();
-  createWindow();
+
+  logger.info('Workspace Navigator starting...');
+
+  windowManager.createWindow();
+
+  // Initialize TabManager after window is created
+  const mainWindow = windowManager.getMainWindow();
+  if (mainWindow) {
+    initializeTabManager(mainWindow);
+
+    // Restore tabs from session
+    await restoreTabs();
+  }
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+    logger.debug('App activated');
+    if (!windowManager.hasWindow()) {
+      windowManager.createWindow();
     }
   });
+}).catch((error) => {
+  logger.error('Failed to start application', error as Error);
+  app.quit();
 });
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
+    logger.info('All windows closed, quitting application');
     // Close database connection
-    db.close();
+    if (db) {
+      db.close();
+    }
     app.quit();
   }
 });
 
-app.on('will-quit', () => {
-  // Cleanup
-  if (db) {
-    db.close();
+// T038: Flush all pending autosaves before quit
+let isQuitting = false;
+app.on('before-quit', async (event) => {
+  if (isQuitting) {
+    // Already handled, allow quit
+    return;
+  }
+
+  // Prevent default quit
+  event.preventDefault();
+  isQuitting = true;
+
+  logger.info('Before quit: flushing pending autosaves...');
+
+  try {
+    if (autosaveManager) {
+      const pendingCount = autosaveManager.getPendingCount();
+
+      if (pendingCount > 0) {
+        logger.info(`Flushing ${pendingCount} pending autosaves...`);
+
+        // Flush all with 3-second timeout
+        await autosaveManager.flushAll(3000);
+
+        logger.info('All autosaves flushed successfully');
+      } else {
+        logger.debug('No pending autosaves to flush');
+      }
+    }
+  } catch (error) {
+    logger.error('Error flushing autosaves during quit', error as Error);
+    // Continue with quit even if flush fails to prevent app hang
+  }
+
+  // Now allow the app to quit
+  app.quit();
+});
+
+app.on('will-quit', async () => {
+  // Cleanup resources before quitting
+  logger.info('Application shutting down...');
+
+  try {
+    // Destroy autosave manager
+    if (autosaveManager) {
+      autosaveManager.destroy();
+    }
+
+    // Destroy tab manager
+    if (tabManager) {
+      tabManager.destroy();
+    }
+
+    // Destroy browser view manager
+    if (browserViewManager) {
+      browserViewManager.destroy();
+    }
+
+    // Shutdown session manager (flush any pending saves)
+    if (sessionManager) {
+      sessionManager.shutdown();
+    }
+
+    // Close database connection
+    if (db) {
+      db.close();
+    }
+
+    // Close logger and flush all logs
+    await logger.close();
+  } catch (error) {
+    console.error('Error during shutdown:', error);
   }
 });
 
-// Handle unhandled errors
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught exception:', error);
-});
-
-process.on('unhandledRejection', (error) => {
-  console.error('Unhandled rejection:', error);
-});
+// Note: Error handlers are now managed by ErrorHandler
+// See src/core/logging/error-handler.ts

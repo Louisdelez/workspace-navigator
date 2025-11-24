@@ -204,7 +204,7 @@ export class WorkspaceEngine {
       isDeleted: false
     };
 
-    this.db.createItem(item);
+    this.db.createItem(item as any);
     return item;
   }
 
@@ -251,7 +251,7 @@ export class WorkspaceEngine {
       isDeleted: false
     };
 
-    this.db.createItem(item);
+    this.db.createItem(item as any);
     return item;
   }
 
@@ -321,6 +321,70 @@ export class WorkspaceEngine {
    */
   saveWindowState(windowState: any): void {
     this.db.updateSessionState({ windowState });
+  }
+
+  // ==================== SEARCH (T046) ====================
+
+  /**
+   * Search items by title, URL, or content
+   * @param workspaceId - Workspace to search in
+   * @param query - Search query
+   * @param limit - Maximum number of results
+   * @returns Array of matching items
+   */
+  searchItems(workspaceId: string, query: string, limit?: number): Item[] {
+    return this.db.searchItems(workspaceId, query, limit);
+  }
+
+  // ==================== TAGS (T047) ====================
+
+  /**
+   * Get all tags for a workspace
+   */
+  getAllTags(workspaceId: string) {
+    return this.db.getAllTags(workspaceId);
+  }
+
+  /**
+   * Create a new tag
+   */
+  createTag(workspaceId: string, name: string, color?: string) {
+    return this.db.createTag(workspaceId, name, color);
+  }
+
+  /**
+   * Get tags for an item
+   */
+  getItemTags(itemId: string) {
+    return this.db.getItemTags(itemId);
+  }
+
+  /**
+   * Add tags to an item
+   */
+  addItemTags(itemId: string, tagIds: string[]): void {
+    this.db.addItemTags(itemId, tagIds);
+  }
+
+  /**
+   * Remove tags from an item
+   */
+  removeItemTags(itemId: string, tagIds: string[]): void {
+    this.db.removeItemTags(itemId, tagIds);
+  }
+
+  /**
+   * Get items by tag
+   */
+  getItemsByTag(workspaceId: string, tagId: string) {
+    return this.db.getItemsByTag(workspaceId, tagId);
+  }
+
+  /**
+   * Delete a tag
+   */
+  deleteTag(tagId: string): void {
+    this.db.deleteTag(tagId);
   }
 }
 

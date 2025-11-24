@@ -139,7 +139,7 @@ CREATE TABLE IF NOT EXISTS session_state (
   active_workspace_id TEXT DEFAULT NULL,
   open_tabs TEXT DEFAULT '[]' CHECK(json_valid(open_tabs)),
   active_tab_index INTEGER DEFAULT 0 CHECK(active_tab_index >= 0),
-  ai_provider TEXT DEFAULT 'none' CHECK(ai_provider IN ('chatgpt', 'claude', 'gemini', 'none')),
+  ai_provider TEXT DEFAULT 'none' CHECK(ai_provider IN ('chatgpt', 'claude', 'gemini', 'custom', 'none')),
   window_state TEXT DEFAULT '{}' CHECK(json_valid(window_state)),
   updated_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s', 'now') AS INTEGER) * 1000),
   FOREIGN KEY (active_workspace_id) REFERENCES workspaces(id) ON DELETE SET NULL

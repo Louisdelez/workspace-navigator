@@ -2,9 +2,10 @@
  * Markdown Editor Component (T036)
  * Simplified editor with split view and autosave
  * Implements FR-015: 500ms debounce autosave with "Saved at HH:MM:SS" indicator
+ * T053: Optimized with React.memo to prevent unnecessary re-renders
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import type { NoteItem } from '../../types/entities';
 
 interface MarkdownEditorProps {
@@ -12,7 +13,8 @@ interface MarkdownEditorProps {
   onUpdate: (content: string) => void;
 }
 
-export function MarkdownEditor({ item, onUpdate }: MarkdownEditorProps) {
+// T053: Memoize to prevent re-renders when props haven't changed
+export const MarkdownEditor = memo(function MarkdownEditor({ item, onUpdate }: MarkdownEditorProps) {
   const [content, setContent] = useState(item.content || '');
   const [lastSaved, setLastSaved] = useState<string>('');
   const [showPreview, setShowPreview] = useState(true);
@@ -182,7 +184,11 @@ export function MarkdownEditor({ item, onUpdate }: MarkdownEditorProps) {
       </div>
     </div>
   );
-}
+}, (prevProps, nextProps) => {
+  // T053: Custom comparison - only re-render if item ID or content changed
+  return prevProps.item.id === nextProps.item.id &&
+         prevProps.item.content === nextProps.item.content;
+});
 
 /**
  * Simple Markdown to HTML renderer

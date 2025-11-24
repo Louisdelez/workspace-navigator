@@ -1,16 +1,19 @@
 /**
  * Main App Component - Workspace Navigator
  * Three-column layout: Workspace Panel | Tabs Area | AI Panel
+ * T053: Optimized with lazy loading for faster startup
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { WorkspacePanel } from './components/WorkspacePanel';
 import { TabsContainer } from './components/TabsContainer';
-import { AIPanel } from './components/AIPanel';
-import { ShortcutsHelp } from './components/ShortcutsHelp';
 import type { Workspace, Item } from '../types/entities';
 import { useKeyboardShortcuts, type ShortcutHandler } from './hooks/useKeyboardShortcuts';
 import './styles/index.css';
+
+// T053: Lazy load heavy components that aren't needed immediately
+const AIPanel = lazy(() => import('./components/AIPanel').then(m => ({ default: m.AIPanel })));
+const ShortcutsHelp = lazy(() => import('./components/ShortcutsHelp').then(m => ({ default: m.ShortcutsHelp })));
 
 export function App() {
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(null);
@@ -201,13 +204,18 @@ export function App() {
         onUpdateItem={handleUpdateItem}
       />
 
-      <AIPanel
-        provider={aiProvider}
-        onProviderChange={setAIProvider}
-      />
+      {/* T053: Suspense boundaries for lazy-loaded components */}
+      <Suspense fallback={<div className="loading-panel">Loading AI Panel...</div>}>
+        <AIPanel
+          provider={aiProvider}
+          onProviderChange={setAIProvider}
+        />
+      </Suspense>
 
       {showShortcutsHelp && (
-        <ShortcutsHelp onClose={() => setShowShortcutsHelp(false)} />
+        <Suspense fallback={<div className="loading-dialog">Loading...</div>}>
+          <ShortcutsHelp onClose={() => setShowShortcutsHelp(false)} />
+        </Suspense>
       )}
     </div>
   );

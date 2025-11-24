@@ -1,5 +1,6 @@
 /**
  * Renderer Process Entry Point
+ * T053: Optimized for fast startup
  */
 
 import React from 'react';
@@ -15,10 +16,18 @@ if (!rootElement) {
 } else {
   const root = ReactDOM.createRoot(rootElement);
 
+  // T053: Remove StrictMode in production for better performance
+  // StrictMode causes double rendering which slows down development
+  const isDev = import.meta.env.DEV;
+
   root.render(
-    <React.StrictMode>
+    isDev ? (
+      <React.StrictMode>
+        <App />
+      </React.StrictMode>
+    ) : (
       <App />
-    </React.StrictMode>
+    )
   );
 
   console.log('React app rendered');

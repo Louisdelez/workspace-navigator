@@ -2,6 +2,7 @@
  * BrowserView Manager
  * Manages Electron BrowserView instances for web content rendering
  * Implements view pooling and lifecycle management
+ * T054: Enhanced with memory management and monitoring
  */
 
 import { BrowserView, BrowserWindow } from 'electron';
@@ -24,27 +25,67 @@ export interface ViewEvent {
   error?: { code: number; description: string };
 }
 
+// T054: Memory management configuration
+interface MemoryConfig {
+  maxPoolSize: number;           // Maximum views to keep in pool
+  maxActiveViews: number;         // Maximum concurrent active views
+  memoryCheckInterval: number;    // Memory check interval (ms)
+  memoryThresholdMB: number;      // Memory threshold for cleanup (MB)
+}
+
+// T054: Memory statistics
+export interface MemoryStats {
+  activeViews: number;
+  pooledViews: number;
+  totalMemoryMB: number;
+  processMemoryMB: number;
+  heapUsedMB: number;
+  timestamp: number;
+}
+
 export class BrowserViewManager extends EventEmitter {
   private views: Map<string, BrowserView> = new Map();
   private viewToTabId: WeakMap<BrowserView, string> = new WeakMap();
   private availablePool: BrowserView[] = [];
-  private maxPoolSize = 5; // Keep a small pool of reusable views
   private currentVisibleTabId: string | null = null;
+
+  // T054: Track last access time for LRU eviction
+  private viewAccessTimes: Map<string, number> = new Map();
 
   // AI Panel support (T042)
   private aiView: BrowserView | null = null;
   private currentAIProvider: { id: string; url: string } | null = null;
 
+  // T054: Memory management
+  private config: MemoryConfig = {
+    maxPoolSize: 3,                  // Reduced from 5 for better memory
+    maxActiveViews: 10,              // Limit concurrent active tabs
+    memoryCheckInterval: 30000,      // Check every 30 seconds
+    memoryThresholdMB: 500           // Cleanup if process > 500MB
+  };
+  private memoryCheckTimer: NodeJS.Timeout | null = null;
+  private lastMemoryStats: MemoryStats | null = null;
+
   constructor(private mainWindow: BrowserWindow) {
     super();
-    logger.info('BrowserViewManager initialized');
+    logger.info('BrowserViewManager initialized with memory management (T054)');
+
+    // T054: Start memory monitoring
+    this.startMemoryMonitoring();
   }
 
   /**
    * Create a new BrowserView for a tab
+   * T054: Enhanced with LRU tracking and view limit enforcement
    */
   createView(tabId: string, url: string): BrowserView {
     logger.debug(`Creating view for tab ${tabId}`, { url });
+
+    // T054: Check if we need to evict views due to limit
+    if (this.views.size >= this.config.maxActiveViews) {
+      logger.warn(`Maximum active views (${this.config.maxActiveViews}) reached, evicting LRU view`);
+      this.evictLRUView();
+    }
 
     // Try to reuse from pool
     let view = this.availablePool.pop();
@@ -70,6 +111,9 @@ export class BrowserViewManager extends EventEmitter {
     this.views.set(tabId, view);
     this.viewToTabId.set(view, tabId);
 
+    // T054: Track access time for LRU
+    this.viewAccessTimes.set(tabId, Date.now());
+
     // Attach to main window
     this.mainWindow.addBrowserView(view);
 
@@ -89,6 +133,7 @@ export class BrowserViewManager extends EventEmitter {
 
   /**
    * Show a view and hide others
+   * T054: Updates access time for LRU tracking
    */
   showView(tabId: string): void {
     const view = this.views.get(tabId);
@@ -105,6 +150,9 @@ export class BrowserViewManager extends EventEmitter {
     // Calculate bounds for center content area
     const bounds = this.calculateContentBounds();
     view.setBounds(bounds);
+
+    // T054: Update access time for LRU
+    this.viewAccessTimes.set(tabId, Date.now());
 
     this.currentVisibleTabId = tabId;
     logger.debug(`Showed view for tab ${tabId}`, { bounds });
@@ -129,6 +177,7 @@ export class BrowserViewManager extends EventEmitter {
 
   /**
    * Destroy a view and optionally return it to pool
+   * T054: Enhanced with access time cleanup
    */
   destroyView(tabId: string): void {
     const view = this.views.get(tabId);
@@ -142,13 +191,14 @@ export class BrowserViewManager extends EventEmitter {
     // Remove tracking
     this.views.delete(tabId);
     this.viewToTabId.delete(view);
+    this.viewAccessTimes.delete(tabId); // T054: Clean up access time
 
     if (this.currentVisibleTabId === tabId) {
       this.currentVisibleTabId = null;
     }
 
     // Return to pool if under limit
-    if (this.availablePool.length < this.maxPoolSize) {
+    if (this.availablePool.length < this.config.maxPoolSize) {
       // Clear history and reset state
       view.webContents.clearHistory();
       this.availablePool.push(view);
@@ -490,10 +540,167 @@ export class BrowserViewManager extends EventEmitter {
   }
 
   /**
+   * T054: Start memory monitoring
+   */
+  private startMemoryMonitoring(): void {
+    if (this.memoryCheckTimer) {
+      return; // Already monitoring
+    }
+
+    logger.info('Starting memory monitoring', {
+      interval: this.config.memoryCheckInterval,
+      threshold: this.config.memoryThresholdMB
+    });
+
+    this.memoryCheckTimer = setInterval(() => {
+      this.checkMemoryPressure();
+    }, this.config.memoryCheckInterval);
+
+    // Initial check
+    this.checkMemoryPressure();
+  }
+
+  /**
+   * T054: Stop memory monitoring
+   */
+  private stopMemoryMonitoring(): void {
+    if (this.memoryCheckTimer) {
+      clearInterval(this.memoryCheckTimer);
+      this.memoryCheckTimer = null;
+      logger.info('Stopped memory monitoring');
+    }
+  }
+
+  /**
+   * T054: Get current memory statistics
+   */
+  getMemoryStats(): MemoryStats {
+    const processMemory = process.memoryUsage();
+
+    const stats: MemoryStats = {
+      activeViews: this.views.size,
+      pooledViews: this.availablePool.length,
+      totalMemoryMB: Math.round((processMemory.rss) / 1024 / 1024),
+      processMemoryMB: Math.round((processMemory.external + processMemory.heapUsed) / 1024 / 1024),
+      heapUsedMB: Math.round(processMemory.heapUsed / 1024 / 1024),
+      timestamp: Date.now()
+    };
+
+    this.lastMemoryStats = stats;
+    return stats;
+  }
+
+  /**
+   * T054: Check for memory pressure and cleanup if needed
+   */
+  private checkMemoryPressure(): void {
+    const stats = this.getMemoryStats();
+
+    logger.debug('Memory stats', stats);
+
+    // Check if we're above threshold
+    if (stats.totalMemoryMB > this.config.memoryThresholdMB) {
+      logger.warn(`Memory pressure detected: ${stats.totalMemoryMB}MB > ${this.config.memoryThresholdMB}MB threshold`);
+      this.cleanupMemory();
+    }
+
+    // Always clear pool if we have too many pooled views
+    if (this.availablePool.length > this.config.maxPoolSize) {
+      const excess = this.availablePool.length - this.config.maxPoolSize;
+      logger.debug(`Clearing ${excess} excess pooled views`);
+
+      for (let i = 0; i < excess; i++) {
+        const view = this.availablePool.pop();
+        if (view) {
+          try {
+            (view.webContents as any).destroy();
+          } catch (err) {
+            logger.warn('Error destroying excess pooled view', err as Error);
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * T054: Evict the least recently used view (excluding currently visible)
+   */
+  private evictLRUView(): void {
+    // Find LRU view (oldest access time, excluding current visible)
+    let lruTabId: string | null = null;
+    let oldestTime = Infinity;
+
+    for (const [tabId, accessTime] of this.viewAccessTimes.entries()) {
+      if (tabId !== this.currentVisibleTabId && accessTime < oldestTime) {
+        oldestTime = accessTime;
+        lruTabId = tabId;
+      }
+    }
+
+    if (lruTabId) {
+      logger.info(`Evicting LRU view for tab ${lruTabId} (last accessed: ${new Date(oldestTime).toISOString()})`);
+      this.destroyView(lruTabId);
+
+      // Emit event so TabManager can update tab state
+      this.emit('view-evicted', { tabId: lruTabId });
+    }
+  }
+
+  /**
+   * T054: Aggressive memory cleanup
+   */
+  private cleanupMemory(): void {
+    logger.info('Starting aggressive memory cleanup');
+
+    const beforeStats = this.getMemoryStats();
+
+    // 1. Clear all pooled views
+    while (this.availablePool.length > 0) {
+      const view = this.availablePool.pop();
+      if (view) {
+        try {
+          (view.webContents as any).destroy();
+        } catch (err) {
+          logger.warn('Error destroying pooled view during cleanup', err as Error);
+        }
+      }
+    }
+
+    // 2. Clear cache and history for hidden views
+    for (const [tabId, view] of this.views.entries()) {
+      if (tabId !== this.currentVisibleTabId) {
+        try {
+          view.webContents.session.clearCache();
+          view.webContents.clearHistory();
+        } catch (err) {
+          logger.warn(`Error clearing cache for tab ${tabId}`, err as Error);
+        }
+      }
+    }
+
+    // 3. Force garbage collection if available
+    if (global.gc) {
+      logger.debug('Forcing garbage collection');
+      global.gc();
+    }
+
+    const afterStats = this.getMemoryStats();
+    const saved = beforeStats.totalMemoryMB - afterStats.totalMemoryMB;
+
+    logger.info(`Memory cleanup complete. Freed ${saved}MB`, {
+      before: beforeStats.totalMemoryMB,
+      after: afterStats.totalMemoryMB
+    });
+  }
+
+  /**
    * Cleanup all views and pool
    */
   destroy(): void {
     logger.info('Destroying BrowserViewManager');
+
+    // T054: Stop memory monitoring
+    this.stopMemoryMonitoring();
 
     // Destroy AI view first
     if (this.aiView) {

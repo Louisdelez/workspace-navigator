@@ -302,6 +302,7 @@ function setupIpcHandlers() {
 
 /**
  * Restore tabs from session
+ * T053: Optimized to parallelize tab restoration for faster startup
  */
 async function restoreTabs() {
   try {
@@ -320,32 +321,46 @@ async function restoreTabs() {
       tabManager.setWorkspace(session.activeWorkspaceId);
     }
 
-    // Restore tabs
+    // T053: Restore tabs in parallel for faster startup
+    const startTime = Date.now();
     let restoredCount = 0;
     let skippedCount = 0;
 
-    for (const itemId of session.openTabs) {
+    // Validate all items exist first (fast database queries)
+    const validItems = session.openTabs.filter(itemId => {
       try {
-        // Check if item still exists
         const item = engine.getItem(itemId);
         if (!item) {
           logger.warn(`Skipping deleted item ${itemId} during tab restoration`);
-          skippedCount++;
-          continue;
+          return false;
         }
-
-        // Open tab
-        if (tabManager) {
-          await tabManager.openTab(itemId);
-          restoredCount++;
-        }
+        return true;
       } catch (error) {
-        logger.error(`Failed to restore tab for item ${itemId}`, error as Error);
-        skippedCount++;
+        logger.error(`Error checking item ${itemId}`, error as Error);
+        return false;
       }
+    });
+
+    // Open tabs in parallel (up to 3 at a time to avoid overwhelming the system)
+    const BATCH_SIZE = 3;
+    for (let i = 0; i < validItems.length; i += BATCH_SIZE) {
+      const batch = validItems.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map(itemId => tabManager ? tabManager.openTab(itemId) : Promise.reject('No tab manager'))
+      );
+
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          restoredCount++;
+        } else {
+          logger.error(`Failed to restore tab for item ${batch[index]}`, result.reason);
+          skippedCount++;
+        }
+      });
     }
 
-    logger.info(`Tab restoration complete: ${restoredCount} restored, ${skippedCount} skipped`);
+    const duration = Date.now() - startTime;
+    logger.info(`Tab restoration complete in ${duration}ms: ${restoredCount} restored, ${skippedCount} skipped`);
   } catch (error) {
     logger.error('Failed to restore tabs from session', error as Error);
   }

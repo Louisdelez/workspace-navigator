@@ -39,6 +39,9 @@ desktop.ini
 *.log
 .electron/
 
+# Release builds (large binaries)
+release/
+
 # Database
 *.db
 *.db-wal

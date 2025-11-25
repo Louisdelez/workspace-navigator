@@ -85,7 +85,9 @@ export class WindowManager {
       // this.mainWindow.webContents.openDevTools();
     } else {
       // Production mode - load built files
-      this.mainWindow.loadFile(join(__dirname, '../renderer/index.html'));
+      // The main process runs from dist/main/main/index.js
+      // so we need to go up two levels to reach dist/renderer/index.html
+      this.mainWindow.loadFile(join(__dirname, '../../renderer/index.html'));
     }
   }
 

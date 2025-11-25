@@ -14,6 +14,11 @@
     "preview": "vite preview",
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && npm run build:main && electron dist/main/main/index.js\"",
     "electron:build": "npm run build && electron-builder",
+    "electron:build:win": "npm run build && electron-builder --win",
+    "electron:build:mac": "npm run build && electron-builder --mac",
+    "electron:build:linux": "npm run build && electron-builder --linux",
+    "electron:build:all": "npm run build && electron-builder -mwl",
+    "postinstall": "electron-builder install-app-deps",
     "lint": "eslint src --ext .ts,.tsx",
     "format": "prettier --write \"src/**/*.{ts,tsx,json,css}\"",
     "test": "vitest",
@@ -36,6 +41,7 @@
     "winston": "^3.18.3"
   },
   "devDependencies": {
+    "@electron/notarize": "^3.1.1",
     "@electron/rebuild": "^4.0.1",
     "@playwright/test": "^1.56.1",
     "@testing-library/jest-dom": "^6.9.1",
@@ -60,6 +66,7 @@
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
     "happy-dom": "^20.0.10",
+    "icon-gen": "^5.0.0",
     "playwright": "^1.56.1",
     "prettier": "^3.1.0",
     "typescript": "^5.3.2",
@@ -71,30 +78,184 @@
   "build": {
     "appId": "com.navigateur.workspace",
     "productName": "Workspace Navigator",
+    "copyright": "Copyright © 2025 Workspace Navigator Team",
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build"
     },
     "files": [
       "dist/**/*",
       "package.json"
     ],
-    "mac": {
-      "category": "public.app-category.productivity",
-      "target": [
-        "dmg"
-      ]
-    },
+    "extraResources": [
+      {
+        "from": "build/",
+        "to": ".",
+        "filter": [
+          "icon.*"
+        ]
+      }
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "**/*.node"
+    ],
     "win": {
       "target": [
-        "nsis"
-      ]
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/app.ico",
+      "publisherName": "Workspace Navigator Team",
+      "legalTrademarks": "",
+      "requestedExecutionLevel": "asInvoker"
     },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "installerIcon": "build/app.ico",
+      "uninstallerIcon": "build/app.ico",
+      "installerHeaderIcon": "build/app.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Workspace Navigator",
+      "license": "LICENSE",
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true,
+      "installerLanguages": [
+        "en_US"
+      ],
+      "language": 1033
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-portable.${ext}"
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "build/app.icns",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "darkModeSupport": true,
+      "minimumSystemVersion": "10.15.0",
+      "extendInfo": {
+        "NSHumanReadableCopyright": "Copyright © 2025 Workspace Navigator Team",
+        "CFBundleShortVersionString": "0.1.0",
+        "NSRequiresAquaSystemAppearance": false
+      },
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "notarize": false
+    },
+    "dmg": {
+      "background": "build/dmg-background.png",
+      "backgroundColor": "#f8fafc",
+      "iconSize": 80,
+      "iconTextSize": 12,
+      "contents": [
+        {
+          "x": 130,
+          "y": 220,
+          "type": "file"
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ],
+      "window": {
+        "width": 540,
+        "height": 400
+      },
+      "title": "${productName} ${version}",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "afterSign": "scripts/notarize.js",
     "linux": {
       "target": [
-        "AppImage",
-        "deb"
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
-      "category": "Office"
-    }
+      "icon": "build/icons",
+      "category": "Office;Utility;Development;",
+      "maintainer": "Workspace Navigator Team <support@workspace-navigator.dev>",
+      "vendor": "Workspace Navigator",
+      "synopsis": "Workspace Navigator - Combined browser, editor, and AI assistant",
+      "description": "A cross-platform desktop application combining web browser, Markdown editor, and AI assistant in a unified workspace. Features include multi-tab web browsing, Markdown note editing with live preview, integrated AI assistants (ChatGPT, Claude, Gemini), workspace organization with folders and tags, and session persistence.",
+      "executableName": "workspace-navigator",
+      "desktop": {
+        "Name": "Workspace Navigator",
+        "GenericName": "Productivity Suite",
+        "Comment": "Browser, Editor, and AI Assistant in one app",
+        "Keywords": "browser;editor;markdown;ai;workspace;notes;productivity",
+        "StartupWMClass": "workspace-navigator",
+        "MimeType": "text/markdown;text/x-markdown;x-scheme-handler/http;x-scheme-handler/https"
+      },
+      "mimeTypes": [
+        "text/markdown",
+        "text/x-markdown"
+      ]
+    },
+    "deb": {
+      "depends": [
+        "libnotify4",
+        "libxtst6",
+        "libnss3",
+        "libxss1",
+        "libasound2",
+        "libsecret-1-0",
+        "libappindicator3-1"
+      ],
+      "recommends": [
+        "libgconf-2-4"
+      ],
+      "priority": "optional",
+      "afterInstall": "scripts/linux/postinst.sh",
+      "afterRemove": "scripts/linux/postrm.sh"
+    },
+    "appImage": {
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "publish": null
   }
 }

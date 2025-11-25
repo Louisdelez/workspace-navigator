@@ -125,14 +125,259 @@ This compiles:
 
 ### Production Build
 
+#### Build All Platforms
 ```bash
-npm run electron:build
+npm run electron:build:all    # Build for Windows, macOS, and Linux
 ```
 
-This creates distributable packages in `release/`:
-- Windows: `.exe` installer
-- macOS: `.dmg` image
-- Linux: `.AppImage` and `.deb` packages
+Note: Cross-platform building has limitations:
+- Windows installers can only be built on Windows
+- macOS installers require macOS with Xcode
+- Linux packages can be built on any Linux system
+
+#### Build for Specific Platform
+
+```bash
+npm run electron:build:win    # Windows only (NSIS installer + portable)
+npm run electron:build:mac    # macOS only (DMG + ZIP)
+npm run electron:build:linux  # Linux only (AppImage + DEB)
+```
+
+### Build Outputs
+
+All builds are placed in the `release/` directory:
+
+#### Windows (`release/`)
+| File | Description |
+|------|-------------|
+| `Workspace Navigator Setup 0.1.0.exe` | NSIS installer (64-bit + 32-bit) |
+| `Workspace Navigator-0.1.0-portable.exe` | Portable version (no installation) |
+
+#### macOS (`release/`)
+| File | Description |
+|------|-------------|
+| `Workspace Navigator-0.1.0.dmg` | DMG disk image |
+| `Workspace Navigator-0.1.0-mac.zip` | ZIP archive |
+
+#### Linux (`release/`)
+| File | Description |
+|------|-------------|
+| `Workspace Navigator-0.1.0.AppImage` | Universal AppImage |
+| `workspace-navigator_0.1.0_amd64.deb` | Debian/Ubuntu package |
+
+### Windows Build Requirements
+
+To build for Windows on Windows:
+
+1. **Install Windows Build Tools** (if not already installed):
+   ```powershell
+   npm install --global windows-build-tools
+   ```
+
+2. **Run the build**:
+   ```bash
+   npm run electron:build:win
+   ```
+
+### Windows NSIS Installer Features
+
+The Windows installer includes:
+- Per-user installation (no admin required)
+- Custom installation directory selection
+- Desktop shortcut creation
+- Start Menu entry
+- Uninstaller with optional app data cleanup
+- License agreement display
+- Post-install app launch option
+
+### macOS Build Requirements
+
+To build for macOS:
+
+1. **Install Xcode Command Line Tools**:
+   ```bash
+   xcode-select --install
+   ```
+
+2. **Run the build**:
+   ```bash
+   npm run electron:build:mac
+   ```
+
+### macOS DMG Features
+
+The macOS DMG installer includes:
+- Custom background image with installation instructions
+- Drag-and-drop Applications folder shortcut
+- Dark mode support
+- Universal binary support (Intel x64 + Apple Silicon arm64)
+- Minimum macOS version: 10.15 (Catalina)
+
+### macOS Code Signing and Notarization
+
+For distribution outside the Mac App Store, Apple requires apps to be:
+1. **Code signed** with a Developer ID certificate
+2. **Notarized** by Apple (verified to be free of malware)
+
+#### Prerequisites for Signing
+
+1. **Apple Developer Program membership** ($99/year)
+2. **Developer ID Application certificate** from Apple Developer Portal
+3. **App-specific password** from appleid.apple.com
+
+#### Setting Up Code Signing
+
+1. **Export your certificate** from Keychain Access as a .p12 file
+
+2. **Set environment variables**:
+   ```bash
+   # For code signing
+   export CSC_LINK="/path/to/Developer_ID_Application.p12"
+   export CSC_KEY_PASSWORD="your-certificate-password"
+
+   # For notarization
+   export APPLE_ID="your-apple-id@example.com"
+   export APPLE_ID_PASSWORD="app-specific-password"
+   export APPLE_TEAM_ID="your-team-id"  # Optional, for multiple teams
+   ```
+
+3. **Enable notarization** in `package.json`:
+   ```json
+   {
+     "build": {
+       "mac": {
+         "notarize": true
+       }
+     }
+   }
+   ```
+
+4. **Build with signing**:
+   ```bash
+   npm run electron:build:mac
+   ```
+
+#### Generating an App-Specific Password
+
+1. Go to https://appleid.apple.com
+2. Sign in with your Apple ID
+3. Navigate to Security → App-Specific Passwords
+4. Click "Generate Password"
+5. Use this password for `APPLE_ID_PASSWORD` (NOT your regular Apple ID password)
+
+#### Verifying Notarization
+
+After building, verify the app is properly notarized:
+```bash
+spctl -a -vvv -t install "release/Workspace Navigator-0.1.0-arm64.dmg"
+# Should show: "source=Notarized Developer ID"
+
+codesign -dv --verbose=4 "release/mac-arm64/Workspace Navigator.app"
+# Should show signing information
+```
+
+#### Troubleshooting Notarization
+
+- **"The signature is invalid"**: Ensure hardened runtime is enabled
+- **"Notarization failed"**: Check the notarization log at Apple's portal
+- **"Unable to upload"**: Verify app-specific password is correct
+- **Timeout issues**: Notarization can take 5-15 minutes; be patient
+
+### Linux Build Requirements
+
+Most Linux distributions have all required tools. On Ubuntu/Debian:
+
+```bash
+# For deb package building
+sudo apt-get install dpkg fakeroot
+
+# For AppImage (usually pre-installed)
+# No additional dependencies needed
+```
+
+**Run the build**:
+```bash
+npm run electron:build:linux
+```
+
+### Linux Package Features
+
+#### AppImage
+- Universal portable package that runs on most Linux distributions
+- Self-contained with all dependencies
+- No installation required - just make executable and run
+- Desktop integration via AppImage daemon (optional)
+- File name: `Workspace Navigator-0.1.0-x86_64.AppImage`
+
+**Running the AppImage**:
+```bash
+chmod +x "Workspace Navigator-0.1.0-x86_64.AppImage"
+./"Workspace Navigator-0.1.0-x86_64.AppImage"
+```
+
+#### DEB Package (Debian/Ubuntu)
+- Native package format for Debian-based systems
+- Integrates with system package manager
+- Desktop entry and menu integration
+- File associations for Markdown files
+- Post-install script updates icon cache and MIME database
+- File name: `workspace-navigator_0.1.0_amd64.deb`
+
+**Installing the DEB package**:
+```bash
+# Using dpkg
+sudo dpkg -i workspace-navigator_0.1.0_amd64.deb
+sudo apt-get install -f  # Install any missing dependencies
+
+# Or using apt (recommended)
+sudo apt install ./workspace-navigator_0.1.0_amd64.deb
+```
+
+**Uninstalling**:
+```bash
+sudo apt remove workspace-navigator
+```
+
+### Linux Dependencies
+
+The DEB package declares these dependencies (installed automatically):
+- `libnotify4` - Desktop notifications
+- `libxtst6` - X11 testing library
+- `libnss3` - Network Security Services
+- `libxss1` - X11 screensaver extension
+- `libasound2` - ALSA sound library
+- `libsecret-1-0` - Secret service (for secure storage)
+- `libappindicator3-1` - System tray support
+
+### Linux Desktop Integration
+
+The package includes:
+- **Desktop file**: Appears in application menu
+- **Icons**: Multiple sizes (16x16 to 512x512) for proper display
+- **MIME types**: Associates with Markdown files (.md)
+- **Keywords**: Searchable in application launchers
+
+### Linux Data Locations
+
+| Data Type | Location |
+|-----------|----------|
+| Configuration | `~/.config/workspace-navigator/` |
+| Database | `~/.config/workspace-navigator/workspace.db` |
+| Logs | `~/.config/workspace-navigator/logs/` |
+| Notes | `~/.config/workspace-navigator/notes/` |
+
+### Generating App Icons
+
+The app icons are stored in `build/` directory:
+- `app.ico` - Windows icon (256x256 multi-size ICO)
+- `app.icns` - macOS icon (multi-resolution ICNS)
+- `icon.png` - Linux icon (512x512 PNG)
+- `icon.svg` - Source SVG icon
+
+To regenerate icons from the SVG source:
+```bash
+npx icon-gen -i build/icon.svg -o build --ico --icns --report
+```
 
 ---
 
@@ -348,7 +593,11 @@ taskkill /PID <PID> /F
 | `npm run build:renderer` | Build renderer |
 | `npm run build` | Build both |
 | `npm run electron:dev` | Run app in dev mode |
-| `npm run electron:build` | Package for distribution |
+| `npm run electron:build` | Package for current platform |
+| `npm run electron:build:win` | Build Windows packages |
+| `npm run electron:build:mac` | Build macOS packages |
+| `npm run electron:build:linux` | Build Linux packages |
+| `npm run electron:build:all` | Build all platforms |
 | `npm test` | Run unit tests (watch) |
 | `npm run test:coverage` | Generate coverage report |
 | `npm run test:e2e` | Run E2E tests |

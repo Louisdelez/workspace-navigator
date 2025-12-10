@@ -7,7 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import { TabBar } from './TabBar';
 import { NavigationBar } from './NavigationBar';
-import { MarkdownEditor } from './MarkdownEditor';
+import { MarkdownEditor } from './MarkdownEditor/index';
 import type { Item, NoteItem } from '../../types/entities';
 import { isNoteItem } from '../utils/type-guards';
 
@@ -79,6 +79,7 @@ export function TabsContainer({ onUpdateItem }: TabsContainerProps) {
           <div className="note-editor-overlay">
             <MarkdownEditor
               item={activeItem}
+              workspaceId={activeItem.workspaceId}
               onUpdate={(content) => onUpdateItem(activeItem.id, { content })}
             />
           </div>

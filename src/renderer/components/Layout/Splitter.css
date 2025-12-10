@@ -1,0 +1,135 @@
+/**
+ * Splitter styles (T042)
+ */
+
+.splitter-container {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.splitter-horizontal {
+  flex-direction: row;
+}
+
+.splitter-vertical {
+  flex-direction: column;
+}
+
+.splitter-panel {
+  overflow: hidden;
+}
+
+.splitter-first {
+  flex-shrink: 0;
+}
+
+.splitter-second {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Splitter bar */
+.splitter-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-border, #e0e0e0);
+  transition: background-color 0.15s ease;
+  position: relative;
+  z-index: 10;
+}
+
+.splitter-horizontal .splitter-bar {
+  width: 6px;
+  cursor: col-resize;
+}
+
+.splitter-vertical .splitter-bar {
+  height: 6px;
+  cursor: row-resize;
+}
+
+.splitter-bar:hover,
+.splitter-dragging .splitter-bar {
+  background-color: var(--color-primary, #0066cc);
+}
+
+.splitter-bar:focus {
+  outline: none;
+  background-color: var(--color-primary, #0066cc);
+}
+
+.splitter-bar:focus-visible {
+  box-shadow: 0 0 0 2px var(--color-primary, #0066cc);
+}
+
+/* Handle indicator */
+.splitter-handle {
+  background-color: var(--color-text-secondary, #666666);
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.splitter-horizontal .splitter-handle {
+  width: 2px;
+  height: 30px;
+}
+
+.splitter-vertical .splitter-handle {
+  width: 30px;
+  height: 2px;
+}
+
+.splitter-bar:hover .splitter-handle,
+.splitter-dragging .splitter-bar .splitter-handle {
+  opacity: 1;
+  background-color: white;
+}
+
+/* Collapsed state */
+.splitter-collapsed {
+  background-color: var(--color-primary, #0066cc);
+  cursor: pointer;
+}
+
+.splitter-horizontal .splitter-collapsed {
+  width: 4px;
+}
+
+.splitter-vertical .splitter-collapsed {
+  height: 4px;
+}
+
+/* Dragging state - prevent text selection */
+.splitter-dragging {
+  user-select: none;
+  cursor: col-resize;
+}
+
+.splitter-vertical.splitter-dragging {
+  cursor: row-resize;
+}
+
+/* Panel transitions */
+.splitter-panel {
+  transition: all 150ms ease;
+}
+
+.splitter-dragging .splitter-panel {
+  transition: none;
+}
+
+/* Dark mode adjustments */
+[data-theme='dark'] .splitter-bar {
+  background-color: var(--color-border, #404040);
+}
+
+[data-theme='dark'] .splitter-bar:hover,
+[data-theme='dark'] .splitter-dragging .splitter-bar {
+  background-color: var(--color-primary, #4da3ff);
+}

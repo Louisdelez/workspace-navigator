@@ -77,6 +77,10 @@ export interface ItemMetadata {
   lastAccessedAt?: number;
   openCount?: number;
   customIcon?: string;
+  // Markdown editor metadata (T006)
+  editorScrollPosition?: number;
+  previewEnabled?: boolean;
+  cursorPosition?: number;
 }
 
 /**
@@ -86,6 +90,70 @@ export interface Tag extends BaseEntity {
   workspaceId: string;
   name: string;
   color: string; // Hex color code
+}
+
+/**
+ * AI Provider configuration (T022)
+ */
+export type AIProviderType = 'chatgpt' | 'claude' | 'gemini' | 'custom' | 'none';
+
+export interface AIProvider {
+  id: AIProviderType;
+  name: string;
+  url: string;
+  icon?: string; // Emoji or URL
+  isBuiltIn: boolean;
+}
+
+/**
+ * Built-in AI providers
+ */
+export const AI_PROVIDERS: Record<Exclude<AIProviderType, 'custom' | 'none'>, AIProvider> = {
+  chatgpt: {
+    id: 'chatgpt',
+    name: 'ChatGPT',
+    url: 'https://chat.openai.com',
+    icon: '🤖',
+    isBuiltIn: true
+  },
+  claude: {
+    id: 'claude',
+    name: 'Claude',
+    url: 'https://claude.ai',
+    icon: '🧠',
+    isBuiltIn: true
+  },
+  gemini: {
+    id: 'gemini',
+    name: 'Gemini',
+    url: 'https://gemini.google.com',
+    icon: '✨',
+    isBuiltIn: true
+  }
+};
+
+/**
+ * Get AI provider by ID
+ */
+export function getAIProvider(id: AIProviderType): AIProvider | null {
+  if (id === 'none' || id === 'custom') return null;
+  return AI_PROVIDERS[id] || null;
+}
+
+/**
+ * Tab entity for UI state (T022)
+ */
+export interface Tab {
+  id: string; // UUIDv4
+  itemId: string; // Reference to Item
+  itemType: 'web' | 'note';
+  title: string;
+  url?: string; // For web items
+  favicon?: string | null;
+  isLoading: boolean;
+  isActive: boolean;
+  canGoBack: boolean;
+  canGoForward: boolean;
 }
 
 /**

@@ -5,8 +5,9 @@
  * TODO (T013-T014): Consolidate and organize IPC handlers
  */
 
-import { ipcMain } from 'electron';
+import { ipcMain, dialog } from 'electron';
 import type { WorkspaceEngine } from '../core/workspace/workspace-engine';
+import { assetManager } from '../core/assets/asset-manager';
 
 /**
  * Setup all IPC handlers for communication with renderer
@@ -90,4 +91,53 @@ export function setupIpcHandlers(engine: WorkspaceEngine): void {
   });
 
   // TODO (T028): Add BrowserView IPC handlers
+
+  // ==================== MARKDOWN ASSET OPERATIONS (T010-T013) ====================
+
+  /**
+   * T010: Copy an image asset to the workspace
+   */
+  ipcMain.handle('markdown:copyAsset', async (_, request: {
+    sourcePath: string;
+    workspaceId: string;
+    description?: string;
+  }) => {
+    return assetManager.copyAsset(request.sourcePath, request.workspaceId, request.description);
+  });
+
+  /**
+   * T011: Get the assets directory path for a workspace
+   */
+  ipcMain.handle('markdown:getAssetPath', (_, workspaceId: string) => {
+    return assetManager.getAssetPath(workspaceId);
+  });
+
+  /**
+   * T012: Open file selection dialog for images
+   */
+  ipcMain.handle('markdown:selectImage', async () => {
+    const result = await dialog.showOpenDialog({
+      title: 'Select Image',
+      filters: [
+        { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp'] }
+      ],
+      properties: ['openFile']
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return { cancelled: true };
+    }
+
+    return { cancelled: false, filePath: result.filePaths[0] };
+  });
+
+  /**
+   * T013: Delete an asset from the workspace
+   */
+  ipcMain.handle('markdown:deleteAsset', async (_, request: {
+    assetPath: string;
+    workspaceId: string;
+  }) => {
+    return assetManager.deleteAsset(request.assetPath, request.workspaceId);
+  });
 }

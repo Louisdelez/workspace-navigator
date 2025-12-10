@@ -1,0 +1,202 @@
+/**
+ * TitleBar styles (T043)
+ */
+
+.title-bar {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  background-color: var(--color-bg-secondary, #f5f5f5);
+  border-bottom: 1px solid var(--color-border, #e0e0e0);
+  user-select: none;
+  -webkit-app-region: drag;
+}
+
+.title-bar-drag-region {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding-left: 12px;
+  -webkit-app-region: drag;
+}
+
+.title-bar-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary, #666666);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.title-bar-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+}
+
+/* Controls container */
+.title-bar-controls {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+  -webkit-app-region: no-drag;
+}
+
+/* Button base style */
+.title-bar-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  color: var(--color-text, #333333);
+}
+
+/* ==================== Windows/Linux Style ==================== */
+
+.title-bar-windows {
+  flex-direction: row;
+}
+
+.title-bar-windows .title-bar-button {
+  width: 46px;
+  height: 32px;
+}
+
+.title-bar-windows .title-bar-button:hover {
+  background-color: var(--color-bg-hover, #e8e8e8);
+}
+
+.title-bar-windows .title-bar-close:hover {
+  background-color: #e81123;
+  color: white;
+}
+
+.title-bar-windows .title-bar-button:active {
+  background-color: var(--color-border, #e0e0e0);
+}
+
+.title-bar-windows .title-bar-close:active {
+  background-color: #f1707a;
+  color: white;
+}
+
+/* ==================== macOS Style ==================== */
+
+.title-bar-darwin {
+  flex-direction: row;
+  justify-content: center;
+  position: relative;
+}
+
+.title-bar-darwin .title-bar-controls {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  gap: 8px;
+}
+
+.title-bar-darwin .title-bar-button {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  position: relative;
+}
+
+.title-bar-darwin .title-bar-button .title-bar-icon {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* macOS button colors */
+.title-bar-darwin .title-bar-close {
+  background-color: #ff5f57;
+}
+
+.title-bar-darwin .title-bar-minimize {
+  background-color: #febc2e;
+}
+
+.title-bar-darwin .title-bar-maximize {
+  background-color: #28c840;
+}
+
+/* macOS hover effect */
+.title-bar-darwin .title-bar-controls:hover .title-bar-icon {
+  display: block;
+  font-size: 8px;
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.title-bar-darwin .title-bar-close .title-bar-icon::before {
+  content: '\00d7';
+}
+
+.title-bar-darwin .title-bar-minimize .title-bar-icon::before {
+  content: '\2013';
+}
+
+.title-bar-darwin .title-bar-maximize .title-bar-icon::before {
+  content: '+';
+}
+
+/* macOS inactive state */
+.title-bar-darwin.inactive .title-bar-button {
+  background-color: #ddd;
+}
+
+.title-bar-darwin .title-bar-title {
+  text-align: center;
+}
+
+.title-bar-darwin .title-bar-content {
+  position: absolute;
+  right: 8px;
+}
+
+/* ==================== Dark Mode ==================== */
+
+[data-theme='dark'] .title-bar {
+  background-color: var(--color-bg-secondary, #2d2d2d);
+  border-bottom-color: var(--color-border, #404040);
+}
+
+[data-theme='dark'] .title-bar-title {
+  color: var(--color-text-secondary, #a0a0a0);
+}
+
+[data-theme='dark'] .title-bar-button {
+  color: var(--color-text, #e0e0e0);
+}
+
+[data-theme='dark'] .title-bar-windows .title-bar-button:hover {
+  background-color: var(--color-bg-hover, #3d3d3d);
+}
+
+/* ==================== Focus States ==================== */
+
+.title-bar-button:focus {
+  outline: none;
+}
+
+.title-bar-button:focus-visible {
+  outline: 2px solid var(--color-primary, #0066cc);
+  outline-offset: -2px;
+}
+
+/* ==================== Responsive ==================== */
+
+@media (max-width: 600px) {
+  .title-bar-title {
+    display: none;
+  }
+}

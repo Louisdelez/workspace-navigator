@@ -40,7 +40,15 @@ export function WorkspacePanel({ activeWorkspace, onWorkspaceChange, onOpenItem 
 
   async function loadWorkspaces() {
     try {
-      const allWorkspaces = await window.electronAPI.workspace.getAll();
+      // Defensive: Check if electronAPI is available
+      if (!window.electronAPI?.workspace?.getAll) {
+        console.warn('electronAPI.workspace.getAll not available');
+        return;
+      }
+
+      const raw = await window.electronAPI.workspace.getAll();
+      // Defensive: Normalize to array
+      const allWorkspaces = Array.isArray(raw) ? raw : [];
       setWorkspaces(allWorkspaces);
 
       // Auto-select first workspace if none selected
@@ -56,7 +64,15 @@ export function WorkspacePanel({ activeWorkspace, onWorkspaceChange, onOpenItem 
     if (!activeWorkspace) return;
 
     try {
-      const tree = await window.electronAPI.folder.getTree(activeWorkspace.id);
+      // Defensive: Check if electronAPI is available
+      if (!window.electronAPI?.folder?.getTree) {
+        console.warn('electronAPI.folder.getTree not available');
+        return;
+      }
+
+      const raw = await window.electronAPI.folder.getTree(activeWorkspace.id);
+      // Defensive: Normalize to array
+      const tree = Array.isArray(raw) ? raw : [];
       setFolderTree(tree);
     } catch (error) {
       console.error('Failed to load folder tree:', error);

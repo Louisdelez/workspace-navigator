@@ -6,6 +6,7 @@
 import Database from 'better-sqlite3';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { v4 as uuidv4 } from 'uuid';
 import type {
   Workspace,
   Folder,
@@ -219,7 +220,6 @@ export class WorkspaceDatabase {
     }
 
     // Create new date folder
-    const { v4: uuidv4 } = require('uuid');
     const now = Date.now();
     const folder: Folder = {
       id: uuidv4(),
@@ -269,7 +269,6 @@ export class WorkspaceDatabase {
   }
 
   createItem(item: WebItem | NoteItem): void {
-    // Force-recompile workaround: renamed internal logic
     this._createItemInternal(item);
   }
 
@@ -277,7 +276,6 @@ export class WorkspaceDatabase {
     const data = this.toSnakeCase(item);
 
     // Use positional parameters (?) instead of named parameters (@name)
-    // This bypasses any parameter name matching issues
     const stmt = this.db.prepare(
       `INSERT INTO items (id, workspace_id, folder_id, item_type, title, url, favicon, content, metadata, created_at, updated_at, is_deleted)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
@@ -286,7 +284,8 @@ export class WorkspaceDatabase {
     // Explicitly set all values in the correct order
     const url = item.itemType === 'web' ? (data.url || null) : null;
     const favicon = item.itemType === 'web' ? (data.favicon || null) : null;
-    const content = item.itemType === 'note' ? (data.content || null) : null;
+    // For notes, content can be empty string but must not be null
+    const content = item.itemType === 'note' ? (data.content ?? '') : null;
 
     stmt.run(
       data.id,
@@ -438,7 +437,6 @@ export class WorkspaceDatabase {
    * Create a new tag
    */
   createTag(workspaceId: string, name: string, color: string = '#808080') {
-    const { v4: uuidv4 } = require('uuid');
     const now = Date.now();
 
     // Check if tag already exists

@@ -121,6 +121,47 @@ const api = {
     onResponsive: (callback: () => void) => {
       ipcRenderer.on('app:responsive', callback);
     }
+  },
+
+  // Markdown asset operations (T014)
+  markdown: {
+    /**
+     * Copy an image to the workspace assets folder
+     */
+    copyAsset: (request: {
+      sourcePath: string;
+      workspaceId: string;
+      description?: string;
+    }): Promise<{
+      success: true;
+      assetPath: string;
+      markdownLink: string;
+    } | {
+      success: false;
+      error: 'FILE_NOT_FOUND' | 'INVALID_FORMAT' | 'FILE_TOO_LARGE' | 'COPY_FAILED';
+      message: string;
+    }> => ipcRenderer.invoke('markdown:copyAsset', request),
+
+    /**
+     * Get the assets directory path for a workspace
+     */
+    getAssetPath: (workspaceId: string): Promise<string> =>
+      ipcRenderer.invoke('markdown:getAssetPath', workspaceId),
+
+    /**
+     * Open file selection dialog for images
+     */
+    selectImage: (): Promise<{ cancelled: true } | { cancelled: false; filePath: string }> =>
+      ipcRenderer.invoke('markdown:selectImage'),
+
+    /**
+     * Delete an asset from the workspace
+     */
+    deleteAsset: (request: {
+      assetPath: string;
+      workspaceId: string;
+    }): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('markdown:deleteAsset', request)
   }
 };
 

@@ -1,0 +1,744 @@
+/**
+ * Markdown Editor Styles (T020)
+ * Styles for the advanced markdown editor component
+ */
+
+/* ============================================================================
+   Container Layout
+   ============================================================================ */
+
+.markdown-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  background: var(--bg-primary, #ffffff);
+  color: var(--text-primary, #1a1a1a);
+}
+
+.markdown-editor-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--bg-secondary, #f5f5f5);
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
+  flex-shrink: 0;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ============================================================================
+   Toolbar Buttons
+   ============================================================================ */
+
+.toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 4px;
+  background: var(--bg-primary, #ffffff);
+  color: var(--text-primary, #1a1a1a);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.toolbar-button:hover {
+  background: var(--bg-hover, #f0f0f0);
+  border-color: var(--border-hover, #c0c0c0);
+}
+
+.toolbar-button:active {
+  background: var(--bg-active, #e0e0e0);
+  transform: translateY(1px);
+}
+
+.toolbar-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toolbar-button.active {
+  background: var(--accent-bg, #e3f2fd);
+  border-color: var(--accent-color, #2196f3);
+  color: var(--accent-color, #2196f3);
+}
+
+.toolbar-separator {
+  width: 1px;
+  height: 24px;
+  background: var(--border-color, #e0e0e0);
+  margin: 0 4px;
+}
+
+.toolbar-group {
+  display: flex;
+  gap: 2px;
+}
+
+/* ============================================================================
+   Editor Content Area
+   ============================================================================ */
+
+.markdown-editor-content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.markdown-editor-content.split-view {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--border-color, #e0e0e0);
+}
+
+.markdown-editor-content.editor-only {
+  display: flex;
+}
+
+.markdown-editor-content.editor-only .editor-pane {
+  flex: 1;
+}
+
+/* ============================================================================
+   Editor Pane
+   ============================================================================ */
+
+.editor-pane {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary, #ffffff);
+  overflow: hidden;
+}
+
+.editor-pane-inner {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* CodeMirror Container */
+.codemirror-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.codemirror-editor,
+.markdown-codemirror {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.codemirror-editor .cm-editor {
+  flex: 1;
+  overflow: hidden;
+}
+
+.codemirror-editor .cm-scroller {
+  overflow: auto !important;
+}
+
+/* Legacy line numbers (kept for backwards compatibility) */
+.line-numbers {
+  width: 48px;
+  padding: 12px 8px;
+  background: var(--bg-secondary, #f5f5f5);
+  border-right: 1px solid var(--border-color, #e0e0e0);
+  font-family: 'SF Mono', Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-secondary, #666666);
+  text-align: right;
+  user-select: none;
+  overflow-y: hidden;
+}
+
+.line-number {
+  height: 22.4px; /* 14px * 1.6 line-height */
+}
+
+/* Legacy textarea (kept for backwards compatibility) */
+.markdown-textarea {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: 'SF Mono', Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  background: var(--bg-primary, #ffffff);
+  color: var(--text-primary, #1a1a1a);
+  overflow-y: auto;
+}
+
+.markdown-textarea::placeholder {
+  color: var(--text-placeholder, #999999);
+}
+
+/* ============================================================================
+   Milkdown Editor Styles
+   ============================================================================ */
+
+.milkdown-editor {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.milkdown-editor:focus {
+  outline: none;
+}
+
+.milkdown-editor .editor {
+  min-height: 100%;
+}
+
+/* Milkdown Typography */
+.milkdown-editor h1 {
+  font-size: 2em;
+  font-weight: 700;
+  margin: 0.67em 0;
+  line-height: 1.2;
+}
+
+.milkdown-editor h2 {
+  font-size: 1.5em;
+  font-weight: 600;
+  margin: 0.83em 0;
+  line-height: 1.3;
+}
+
+.milkdown-editor h3 {
+  font-size: 1.17em;
+  font-weight: 600;
+  margin: 1em 0;
+  line-height: 1.4;
+}
+
+.milkdown-editor h4,
+.milkdown-editor h5,
+.milkdown-editor h6 {
+  font-size: 1em;
+  font-weight: 600;
+  margin: 1.33em 0;
+}
+
+.milkdown-editor p {
+  margin: 1em 0;
+}
+
+.milkdown-editor strong {
+  font-weight: 600;
+}
+
+.milkdown-editor em {
+  font-style: italic;
+}
+
+.milkdown-editor s {
+  text-decoration: line-through;
+}
+
+.milkdown-editor u {
+  text-decoration: underline;
+}
+
+/* Lists */
+.milkdown-editor ul,
+.milkdown-editor ol {
+  margin: 1em 0;
+  padding-left: 2em;
+}
+
+.milkdown-editor li {
+  margin: 0.25em 0;
+}
+
+/* Blockquote */
+.milkdown-editor blockquote {
+  margin: 1em 0;
+  padding: 0.5em 1em;
+  border-left: 4px solid var(--accent-color, #2196f3);
+  background: var(--bg-secondary, #f5f5f5);
+  color: var(--text-secondary, #666666);
+}
+
+/* Code */
+.milkdown-editor code {
+  font-family: 'SF Mono', Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 0.9em;
+  padding: 0.2em 0.4em;
+  background: var(--bg-code, #f0f0f0);
+  border-radius: 3px;
+}
+
+.milkdown-editor pre {
+  margin: 1em 0;
+  padding: 1em;
+  background: var(--bg-code, #f0f0f0);
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.milkdown-editor pre code {
+  padding: 0;
+  background: transparent;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Links */
+.milkdown-editor a {
+  color: var(--accent-color, #2196f3);
+  text-decoration: none;
+}
+
+.milkdown-editor a:hover {
+  text-decoration: underline;
+}
+
+/* Images */
+.milkdown-editor img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 1em 0;
+}
+
+/* Tables (GFM) */
+.milkdown-editor table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+}
+
+.milkdown-editor th,
+.milkdown-editor td {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  text-align: left;
+}
+
+.milkdown-editor th {
+  background: var(--bg-secondary, #f5f5f5);
+  font-weight: 600;
+}
+
+/* ============================================================================
+   Preview Pane
+   ============================================================================ */
+
+.preview-pane {
+  background: var(--bg-primary, #ffffff);
+  overflow-y: auto;
+  border-left: 1px solid var(--border-color, #e0e0e0);
+}
+
+.preview-content {
+  padding: 16px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.preview-content h1 {
+  font-size: 2em;
+  font-weight: 700;
+  margin: 0.67em 0;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
+}
+
+.preview-content h2 {
+  font-size: 1.5em;
+  font-weight: 600;
+  margin: 0.83em 0;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
+}
+
+.preview-content h3 {
+  font-size: 1.17em;
+  font-weight: 600;
+  margin: 1em 0;
+}
+
+.preview-content p {
+  margin: 1em 0;
+}
+
+.preview-content ul,
+.preview-content ol {
+  margin: 1em 0;
+  padding-left: 2em;
+}
+
+.preview-content li {
+  margin: 0.25em 0;
+}
+
+.preview-content blockquote {
+  margin: 1em 0;
+  padding: 0.5em 1em;
+  border-left: 4px solid var(--accent-color, #2196f3);
+  background: var(--bg-secondary, #f5f5f5);
+  color: var(--text-secondary, #666666);
+}
+
+.preview-content code {
+  font-family: 'SF Mono', Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 0.9em;
+  padding: 0.2em 0.4em;
+  background: var(--bg-code, #f0f0f0);
+  border-radius: 3px;
+}
+
+.preview-content pre {
+  margin: 1em 0;
+  padding: 1em;
+  background: var(--bg-code, #282c34);
+  color: #abb2bf;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.preview-content pre code {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.preview-content a {
+  color: var(--accent-color, #2196f3);
+}
+
+.preview-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+.preview-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+}
+
+.preview-content th,
+.preview-content td {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color, #e0e0e0);
+}
+
+.preview-content th {
+  background: var(--bg-secondary, #f5f5f5);
+  font-weight: 600;
+}
+
+.empty-note {
+  color: var(--text-placeholder, #999999);
+  font-style: italic;
+}
+
+/* ============================================================================
+   Save Indicator
+   ============================================================================ */
+
+.save-indicator {
+  font-size: 12px;
+  color: var(--text-secondary, #666666);
+  padding: 4px 8px;
+  background: var(--bg-success, #e8f5e9);
+  border-radius: 4px;
+}
+
+.save-indicator.error {
+  background: var(--bg-error, #ffebee);
+  color: var(--text-error, #c62828);
+}
+
+/* ============================================================================
+   Status Bar
+   ============================================================================ */
+
+.markdown-editor-status {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 4px 12px;
+  background: var(--bg-secondary, #f5f5f5);
+  border-top: 1px solid var(--border-color, #e0e0e0);
+  font-size: 11px;
+  color: var(--text-secondary, #666666);
+  flex-shrink: 0;
+}
+
+.markdown-editor-status .status-error {
+  color: var(--text-error, #c62828);
+  margin-left: auto;
+}
+
+/* ============================================================================
+   Dark Mode
+   ============================================================================ */
+
+[data-theme="dark"] .markdown-editor,
+.dark .markdown-editor {
+  --bg-primary: #1e1e1e;
+  --bg-secondary: #252526;
+  --bg-hover: #2a2d2e;
+  --bg-active: #37373d;
+  --bg-code: #2d2d2d;
+  --text-primary: #cccccc;
+  --text-secondary: #858585;
+  --text-placeholder: #5a5a5a;
+  --border-color: #3c3c3c;
+  --border-hover: #5a5a5a;
+  --accent-color: #569cd6;
+  --accent-bg: #264f78;
+}
+
+/* ============================================================================
+   Math (KaTeX) Styles
+   ============================================================================ */
+
+.milkdown-editor .math-inline,
+.preview-content .math-inline {
+  display: inline;
+}
+
+.milkdown-editor .math-block,
+.preview-content .math-block {
+  display: block;
+  text-align: center;
+  margin: 1em 0;
+  overflow-x: auto;
+}
+
+.katex-error {
+  color: var(--text-error, #c62828);
+  font-family: monospace;
+  white-space: pre-wrap;
+}
+
+/* ============================================================================
+   Drop Zone
+   ============================================================================ */
+
+.drop-zone {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.drop-zone.dragging::after {
+  content: 'Drop image here';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(33, 150, 243, 0.1);
+  border: 2px dashed var(--accent-color, #2196f3);
+  border-radius: 4px;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--accent-color, #2196f3);
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* ============================================================================
+   Math (KaTeX)
+   ============================================================================ */
+
+.math-block {
+  display: block;
+  margin: 16px 0;
+  text-align: center;
+  overflow-x: auto;
+}
+
+.math-inline {
+  display: inline;
+}
+
+.math-error {
+  display: inline-block;
+  padding: 4px 8px;
+  background: var(--bg-error, #ffebee);
+  color: var(--text-error, #c62828);
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: monospace;
+}
+
+/* ============================================================================
+   CodeMirror WYSIWYG Styles
+   ============================================================================ */
+
+/* Headings in WYSIWYG mode - no underline */
+.cm-heading-line.cm-heading-1 {
+  font-size: 2em !important;
+  font-weight: 700 !important;
+  line-height: 1.3 !important;
+  margin-top: 0.5em;
+  color: var(--text-primary, #1a1a1a);
+  border-bottom: none !important;
+  text-decoration: none !important;
+}
+
+.cm-heading-line.cm-heading-2 {
+  font-size: 1.5em !important;
+  font-weight: 600 !important;
+  line-height: 1.35 !important;
+  margin-top: 0.4em;
+  color: var(--text-primary, #1a1a1a);
+  border-bottom: none !important;
+  text-decoration: none !important;
+}
+
+.cm-heading-line.cm-heading-3 {
+  font-size: 1.25em !important;
+  font-weight: 600 !important;
+  line-height: 1.4 !important;
+  margin-top: 0.3em;
+  color: var(--text-primary, #1a1a1a);
+  border-bottom: none !important;
+  text-decoration: none !important;
+}
+
+.cm-heading-line.cm-heading-4 {
+  font-size: 1.1em !important;
+  font-weight: 600 !important;
+  color: var(--text-primary, #1a1a1a);
+  border-bottom: none !important;
+  text-decoration: none !important;
+}
+
+.cm-heading-line.cm-heading-5 {
+  font-size: 1em !important;
+  font-weight: 600 !important;
+  color: var(--text-primary, #1a1a1a);
+  border-bottom: none !important;
+  text-decoration: none !important;
+}
+
+.cm-heading-line.cm-heading-6 {
+  font-size: 0.9em !important;
+  font-weight: 600 !important;
+  color: var(--text-secondary, #666666);
+  border-bottom: none !important;
+  text-decoration: none !important;
+}
+
+/* Strong (bold) text */
+.cm-strong {
+  font-weight: bold !important;
+}
+
+/* Emphasis (italic) text */
+.cm-emphasis {
+  font-style: italic !important;
+}
+
+/* Inline code */
+.cm-inline-code {
+  font-family: 'SF Mono', Monaco, Consolas, monospace !important;
+  background: var(--bg-code, rgba(0, 0, 0, 0.05));
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+/* Strikethrough */
+.cm-strikethrough {
+  text-decoration: line-through !important;
+}
+
+/* Links */
+.cm-link {
+  color: var(--accent-color, #2196f3) !important;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Blockquote */
+.cm-blockquote-line {
+  border-left: 3px solid var(--accent-color, #2196f3);
+  padding-left: 1em !important;
+  color: var(--text-secondary, #666666);
+  font-style: italic;
+}
+
+/* List items */
+.cm-list-item-line {
+  padding-left: 0.5em;
+}
+
+.cm-bullet {
+  color: var(--accent-color, #2196f3);
+  font-weight: bold;
+}
+
+/* Dark mode support for CodeMirror */
+[data-theme="dark"] .cm-heading-line.cm-heading-1,
+[data-theme="dark"] .cm-heading-line.cm-heading-2,
+[data-theme="dark"] .cm-heading-line.cm-heading-3,
+[data-theme="dark"] .cm-heading-line.cm-heading-4,
+[data-theme="dark"] .cm-heading-line.cm-heading-5,
+.dark .cm-heading-line.cm-heading-1,
+.dark .cm-heading-line.cm-heading-2,
+.dark .cm-heading-line.cm-heading-3,
+.dark .cm-heading-line.cm-heading-4,
+.dark .cm-heading-line.cm-heading-5 {
+  color: var(--text-primary, #cccccc);
+}
+
+[data-theme="dark"] .cm-heading-line.cm-heading-6,
+.dark .cm-heading-line.cm-heading-6 {
+  color: var(--text-secondary, #858585);
+}
+
+[data-theme="dark"] .cm-inline-code,
+.dark .cm-inline-code {
+  background: var(--bg-code, rgba(255, 255, 255, 0.1));
+}
+
+[data-theme="dark"] .cm-blockquote-line,
+.dark .cm-blockquote-line {
+  color: var(--text-secondary, #858585);
+}

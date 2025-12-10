@@ -22,6 +22,10 @@ import { CrashReporter } from '../core/crash/crash-reporter';
 // Initialize error handler first
 initializeErrorHandler();
 
+// Enable proprietary codecs for video playback (YouTube, Twitch, etc.)
+app.commandLine.appendSwitch('enable-features', 'PlatformHEVCDecoderSupport');
+// Note: Full H.264/AAC support requires electron with proprietary codecs build
+
 let db: WorkspaceDatabase;
 let engine: WorkspaceEngine;
 let autosaveManager: AutosaveManager;

@@ -105,10 +105,17 @@ export class WorkspaceEngine {
 
   private buildFolderNode(folder: Folder): FolderNode {
     const children = this.db.getChildFolders(folder.id);
+    const childNodes = children.map(child => this.buildFolderNode(child));
+    const items = this.db.getItemsInFolder(folder.id);
+
+    // Calculate total item count (direct items + all nested items)
+    const childItemCount = childNodes.reduce((sum, node) => sum + node.itemCount, 0);
+
     return {
       folder,
-      children: children.map(child => this.buildFolderNode(child)),
-      items: this.db.getItemsInFolder(folder.id)
+      children: childNodes,
+      items,
+      itemCount: items.length + childItemCount
     };
   }
 
@@ -166,15 +173,7 @@ export class WorkspaceEngine {
   ): WebItem | { duplicate: true; existing: WebItem } {
     const folderId = options?.folderId || null;
 
-    // FR-002a: Check for duplicates
-    if (!options?.skipDuplicateCheck) {
-      const duplicate = this.db.findDuplicateWebItem(workspaceId, url, folderId);
-      if (duplicate) {
-        return { duplicate: true, existing: duplicate };
-      }
-    }
-
-    // FR-005: Auto date folder assignment
+    // FR-005: Auto date folder assignment (do this BEFORE duplicate check)
     let targetFolderId = folderId;
     if (!folderId && !options?.skipAutoDateFolder) {
       const workspace = this.db.getWorkspaceById(workspaceId);
@@ -182,6 +181,14 @@ export class WorkspaceEngine {
         const dateFolderName = generateDateFolderName();
         const dateFolder = this.db.getOrCreateDateFolder(workspaceId, dateFolderName);
         targetFolderId = dateFolder.id;
+      }
+    }
+
+    // FR-002a: Check for duplicates (use target folder after auto date assignment)
+    if (!options?.skipDuplicateCheck) {
+      const duplicate = this.db.findDuplicateWebItem(workspaceId, url, targetFolderId);
+      if (duplicate) {
+        return { duplicate: true, existing: duplicate };
       }
     }
 
@@ -395,4 +402,5 @@ export interface FolderNode {
   folder: Folder;
   children: FolderNode[];
   items: Item[];
+  itemCount: number; // Total items including nested
 }
